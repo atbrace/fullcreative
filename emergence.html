@@ -1145,6 +1145,7 @@ function renderBrain(canvas, brain) {
 
   const renderer = new Renderer(trailCanvas, mainCanvas);
   const world = new World(renderer.w, renderer.h);
+  window.__world = world; // debug accessor
   const audio = new AudioEngine();
 
   let started = false, showHelp = true, simSpeed = 1, frameCount = 0;
