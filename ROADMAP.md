@@ -90,6 +90,15 @@ interesting navigation, territory, or migration strategies.
   3 new brain inputs (ob.s, ob.c, ob.d) - brain now 26-12-5. Food spawn rejection
   inside obstacles. Population floor bumped to 10 (reseed 20) to compensate for
   larger brain search space.
+- Corner-trapping fix (2026-02-06): Random heading perturbation on wall bounce +
+  soft wall repulsion near edges. Prevents creatures from accumulating in corners.
+- Current zones (2026-02-06): 2-4 drift force zones with quadratic falloff. Zones
+  slowly drift and rotate. Creates migration highways and territory disruption.
+  Subtle flow streak visualization.
+- Seasonal cycles (2026-02-06): Long-period food abundance modulation (14400 ticks
+  = 4 day cycles). Food spawn rate 0.5x in winter to 1.2x in summer. Hotspots drift
+  faster in winter (resource instability). Seasonal color temperature shift. Season
+  indicator in stats panel.
 
 **Remaining:** See GitHub Issues labeled `phase-2`.
 
@@ -243,3 +252,37 @@ natural carrying capacity dynamics create boom-bust cycles. The boom-bust patter
 actually more interesting to watch than a flat steady state - it creates narrative
 (expansion, resource depletion, crash, recovery). Obstacle collision and food
 rejection both verified via Playwright: 0 creatures and 0 food inside obstacles.
+
+### Session 7 - 2026-02-06
+**Built:** Three Phase 2 features + a bug fix.
+1. Corner-trapping fix (#40): Creatures were accumulating in wall corners due to
+   axis-aligned bounce reflections creating deterministic oscillation loops. Fix:
+   random heading perturbation on wall bounce (+/- 0.3 rad) breaks oscillation,
+   plus soft wall repulsion within 30px of edges steers heading inward at 8%
+   correction strength. Subtle enough to not override brain decisions.
+2. Current zones (#4): 2-4 drift force zones generated at world seed. Each zone
+   has position, radius, angle, and strength. Quadratic falloff (force * falloff^2)
+   creates natural-feeling push. Zones slowly drift position and rotate direction
+   over time. Creatures inside zones get pushed along the flow direction. Rendered
+   as very subtle blue-tinted glow + animated flow streaks (5 per zone). No brain
+   inputs added - creatures feel the physical push and adapt through natural
+   selection rather than explicit perception.
+3. Seasonal cycles (#5): Sinusoidal cycle over 14400 ticks (4x day period). Food
+   spawn rate modulated from 0.5x (winter) to 1.2x (summer). Hotspot drift speed
+   increases in winter (resource instability). Seasonal color temperature shift on
+   trail canvas (warm amber in summer, cool blue in winter). Hotspot glow intensity
+   dims in winter. Season name displayed in stats panel (spring/summer/autumn/winter).
+4. Phase 2 now has 3 features complete (obstacles, currents, seasons) + bug fix.
+
+**Learned:** Current zones without brain inputs is the right call for this project.
+The creatures don't need to "know" about currents - they just need to survive in
+a world with currents. Creatures that happen to ride currents toward food will
+reproduce more. This is the purest form of emergence: the environment shapes
+behavior through selection pressure, not explicit perception. Seasonal cycles
+create a second time scale beyond day/night. Day/night is fast enough that
+individual creatures experience many cycles. Seasons are slow enough that they
+create population-level selection pressure - lineages that conserve energy during
+winter transitions survive while profligate lineages crash. The interaction between
+current zones and seasonal scarcity should create interesting dynamics: in winter,
+being swept by a current toward a dying hotspot is fatal, while riding toward
+a surviving one is lifesaving.

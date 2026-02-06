@@ -157,6 +157,7 @@
   <div><span class="sl">deaths</span> <span class="sv" id="s-deaths">0</span></div>
   <div><span class="sl">species</span> <span class="sv" id="s-species">0</span></div>
   <div><span class="sl">oldest</span> <span class="sv" id="s-oldest">0s</span></div>
+  <div><span class="sl">season</span> <span class="sv" id="s-season">--</span></div>
   <div><span class="sl">elapsed</span> <span class="sv" id="s-time">0:00</span></div>
 </div>
 
@@ -261,6 +262,16 @@ const CFG = {
   OBS_MARGIN_CENTER: 150,
   OBS_MARGIN_HOTSPOT: 100,
   OBS_MARGIN_FORMATION: 100,
+
+  // Current zones
+  CURRENT_ZONES_MIN: 2,
+  CURRENT_ZONES_MAX: 4,
+  CURRENT_RADIUS_MIN: 160,
+  CURRENT_RADIUS_MAX: 340,
+  CURRENT_STRENGTH: 0.35,
+
+  // Seasonal cycles
+  SEASON_PERIOD: 14400,
 
   BG: [8, 8, 26],
 };
@@ -431,6 +442,28 @@ class Obstacle {
 }
 
 // ================================================================
+//  CURRENT ZONE (drift force)
+// ================================================================
+class CurrentZone {
+  constructor(x, y, angle, strength, radius) {
+    this.pos = new Vec2(x, y);
+    this.angle = angle;
+    this.strength = strength;
+    this.radius = radius;
+    this.rotSpeed = rand(-0.0004, 0.0004);
+    this.vx = 0; this.vy = 0;
+  }
+  drift(W, H) {
+    this.vx += (Math.random() - 0.5) * 0.015;
+    this.vy += (Math.random() - 0.5) * 0.015;
+    this.vx *= 0.997; this.vy *= 0.997;
+    this.pos.x = clamp(this.pos.x + this.vx, 80, W - 80);
+    this.pos.y = clamp(this.pos.y + this.vy, 80, H - 80);
+    this.angle += this.rotSpeed;
+  }
+}
+
+// ================================================================
 //  CREATURE
 // ================================================================
 let cidCounter = 0;
@@ -550,7 +583,7 @@ class Creature {
       this.signals[ch] = (out[2 + ch] + 1) * 0.5; // 0..1
   }
 
-  move(W, H, obstacles) {
+  move(W, H, obstacles, currents) {
     // Store body trail (push before moving)
     this.body.push({ x: this.pos.x, y: this.pos.y });
     if (this.body.length > CFG.BODY_SEGMENTS) this.body.shift();
@@ -558,11 +591,37 @@ class Creature {
     this.pos.x += Math.cos(this.heading) * this.speed;
     this.pos.y += Math.sin(this.heading) * this.speed;
 
+    // Current zone drift
+    for (let i = 0; i < currents.length; i++) {
+      const cz = currents[i];
+      const dx = this.pos.x - cz.pos.x, dy = this.pos.y - cz.pos.y;
+      const d2 = dx * dx + dy * dy;
+      const r2 = cz.radius * cz.radius;
+      if (d2 < r2) {
+        const falloff = 1 - Math.sqrt(d2) / cz.radius;
+        const force = cz.strength * falloff * falloff;
+        this.pos.x += Math.cos(cz.angle) * force;
+        this.pos.y += Math.sin(cz.angle) * force;
+      }
+    }
+
     const r = this.radius;
-    if (this.pos.x < r) { this.pos.x = r; this.heading = Math.PI - this.heading; }
-    if (this.pos.x > W - r) { this.pos.x = W - r; this.heading = Math.PI - this.heading; }
-    if (this.pos.y < r) { this.pos.y = r; this.heading = -this.heading; }
-    if (this.pos.y > H - r) { this.pos.y = H - r; this.heading = -this.heading; }
+    if (this.pos.x < r) { this.pos.x = r; this.heading = Math.PI - this.heading + rand(-0.3, 0.3); }
+    if (this.pos.x > W - r) { this.pos.x = W - r; this.heading = Math.PI - this.heading + rand(-0.3, 0.3); }
+    if (this.pos.y < r) { this.pos.y = r; this.heading = -this.heading + rand(-0.3, 0.3); }
+    if (this.pos.y > H - r) { this.pos.y = H - r; this.heading = -this.heading + rand(-0.3, 0.3); }
+
+    // Soft wall repulsion - steer heading away from nearby walls
+    const WR = 30;
+    let wpx = 0, wpy = 0;
+    if (this.pos.x < r + WR) wpx = 1 - (this.pos.x - r) / WR;
+    if (this.pos.x > W - r - WR) wpx = -(1 - (W - r - this.pos.x) / WR);
+    if (this.pos.y < r + WR) wpy = 1 - (this.pos.y - r) / WR;
+    if (this.pos.y > H - r - WR) wpy = -(1 - (H - r - this.pos.y) / WR);
+    if (wpx !== 0 || wpy !== 0) {
+      const pushAngle = Math.atan2(wpy, wpx);
+      this.heading += wrapAngle(pushAngle - this.heading) * 0.08;
+    }
 
     // Obstacle collision
     for (let i = 0; i < obstacles.length; i++) {
@@ -717,6 +776,7 @@ class World {
     this.creatureGrid = new SpatialGrid(w, h, CFG.GRID_CELL);
     this.hotspots = [];
     this.obstacles = [];
+    this.currents = [];
     this.tick = 0; this.births = 0; this.deaths = 0; this.maxGen = 0;
     this.popHistory = [];
     this.paused = false;
@@ -727,6 +787,7 @@ class World {
     for (let i = 0; i < CFG.NUM_HOTSPOTS; i++)
       this.hotspots.push(new Hotspot(rand(100, this.w - 100), rand(100, this.h - 100)));
     this._generateObstacles();
+    this._generateCurrents();
     for (let i = 0; i < CFG.INITIAL_CREATURES; i++) {
       let x, y, ok;
       do {
@@ -780,6 +841,18 @@ class World {
     }
   }
 
+  _generateCurrents() {
+    const n = randInt(CFG.CURRENT_ZONES_MIN, CFG.CURRENT_ZONES_MAX + 1);
+    for (let i = 0; i < n; i++) {
+      const x = rand(120, this.w - 120);
+      const y = rand(120, this.h - 120);
+      const angle = Math.random() * Math.PI * 2;
+      const strength = CFG.CURRENT_STRENGTH * rand(0.6, 1.0);
+      const radius = rand(CFG.CURRENT_RADIUS_MIN, CFG.CURRENT_RADIUS_MAX);
+      this.currents.push(new CurrentZone(x, y, angle, strength, radius));
+    }
+  }
+
   _spawnFood() {
     // Weighted random hotspot
     let total = 0;
@@ -819,6 +892,7 @@ class World {
   }
 
   get dayPhase() { return (Math.sin(this.tick * (2 * Math.PI / CFG.DAY_PERIOD)) + 1) * 0.5; }
+  get seasonPhase() { return (Math.sin(this.tick * (2 * Math.PI / CFG.SEASON_PERIOD)) + 1) * 0.5; }
 
   update(audio) {
     if (this.paused) return;
@@ -827,12 +901,20 @@ class World {
     // Day/night affects food spawn rate
     const dayMul = 0.6 + this.dayPhase * 0.8; // 0.6 to 1.4
 
-    // Hotspot drift
-    if (this.tick % 3 === 0)
+    // Seasonal cycle modulates food abundance
+    const seasonMul = 0.5 + this.seasonPhase * 0.7; // 0.5 (winter) to 1.2 (summer)
+
+    // Hotspot drift (faster in winter - resource instability)
+    const driftRate = this.seasonPhase < 0.3 ? 2 : 3;
+    if (this.tick % driftRate === 0)
       for (let i = 0; i < this.hotspots.length; i++) this.hotspots[i].drift(this.w, this.h);
 
-    // Spawn food
-    if (this.food.length < CFG.MAX_FOOD && Math.random() < CFG.FOOD_SPAWN_RATE * dayMul)
+    // Current zone drift
+    if (this.tick % 5 === 0)
+      for (let i = 0; i < this.currents.length; i++) this.currents[i].drift(this.w, this.h);
+
+    // Spawn food (modulated by day + season)
+    if (this.food.length < CFG.MAX_FOOD && Math.random() < CFG.FOOD_SPAWN_RATE * dayMul * seasonMul)
       this.food.push(this._spawnFood());
 
     // Rebuild grids
@@ -847,7 +929,7 @@ class World {
 
       const inp = c.perceive(this.foodGrid, this.creatureGrid, this.obstacles);
       c.think(inp);
-      c.move(this.w, this.h, this.obstacles);
+      c.move(this.w, this.h, this.obstacles, this.currents);
 
       // Eat food
       const nf = this.foodGrid.query(c.pos.x, c.pos.y, c.radius + CFG.EAT_RANGE);
@@ -988,13 +1070,15 @@ class Renderer {
 
     // Day/night subtly affects trail fade
     const dayP = world.dayPhase;
+    const seasonP = world.seasonPhase;
     const trailFade = CFG.TRAIL_FADE_BASE * (0.8 + dayP * 0.4);
 
     // --- Trail canvas ---
     const [br, bg, bb] = CFG.BG;
-    const bgR = br + Math.round(dayP * 3);
-    const bgG = bg + Math.round(dayP * 3);
-    const bgB = bb + Math.round(dayP * 5);
+    // Seasonal color temperature: warm in summer, cool in winter
+    const bgR = br + Math.round(dayP * 3) + Math.round(seasonP * 3);
+    const bgG = bg + Math.round(dayP * 3) + Math.round(seasonP * 1);
+    const bgB = bb + Math.round(dayP * 5) + Math.round((1 - seasonP) * 4);
     tctx.fillStyle = `rgba(${bgR},${bgG},${bgB},${trailFade})`;
     tctx.fillRect(0, 0, W, H);
 
@@ -1017,17 +1101,46 @@ class Renderer {
     // --- Main canvas ---
     ctx.clearRect(0, 0, W, H);
 
-    // Hotspot glow (very subtle)
+    // Hotspot glow (modulated by season)
     ctx.globalCompositeOperation = 'lighter';
+    const hsGlow = 0.015 + seasonP * 0.015; // dimmer in winter
     for (let i = 0; i < world.hotspots.length; i++) {
       const hs = world.hotspots[i];
       const grad = ctx.createRadialGradient(hs.x, hs.y, 0, hs.x, hs.y, CFG.HOTSPOT_SPREAD * 1.2);
-      grad.addColorStop(0, `rgba(50, 120, 70, ${0.025 * hs.strength})`);
+      grad.addColorStop(0, `rgba(50, 120, 70, ${hsGlow * hs.strength})`);
       grad.addColorStop(1, 'rgba(30, 80, 50, 0)');
       ctx.fillStyle = grad;
       ctx.beginPath();
       ctx.arc(hs.x, hs.y, CFG.HOTSPOT_SPREAD * 1.2, 0, 6.283);
       ctx.fill();
+    }
+
+    // Current zones - subtle flow indicators
+    for (let i = 0; i < world.currents.length; i++) {
+      const cz = world.currents[i];
+      // Zone glow
+      const zGrad = ctx.createRadialGradient(cz.pos.x, cz.pos.y, 0, cz.pos.x, cz.pos.y, cz.radius);
+      zGrad.addColorStop(0, 'rgba(35, 55, 95, 0.012)');
+      zGrad.addColorStop(0.6, 'rgba(30, 50, 85, 0.006)');
+      zGrad.addColorStop(1, 'rgba(25, 40, 75, 0)');
+      ctx.fillStyle = zGrad;
+      ctx.beginPath(); ctx.arc(cz.pos.x, cz.pos.y, cz.radius, 0, 6.283); ctx.fill();
+      // Animated flow streaks
+      const fdx = Math.cos(cz.angle), fdy = Math.sin(cz.angle);
+      const perpX = -fdy, perpY = fdx;
+      ctx.strokeStyle = 'rgba(50, 70, 120, 0.035)';
+      ctx.lineWidth = 0.8;
+      for (let j = 0; j < 5; j++) {
+        const phase = ((world.tick * 0.004 + j * 0.2 + i * 0.7) % 1) * 2 - 1;
+        const spread = (j / 5 - 0.5) * cz.radius * 0.7;
+        const sx = cz.pos.x + perpX * spread + fdx * phase * cz.radius * 0.4;
+        const sy = cz.pos.y + perpY * spread + fdy * phase * cz.radius * 0.4;
+        const len = 15 + cz.strength * 20;
+        ctx.beginPath();
+        ctx.moveTo(sx - fdx * len, sy - fdy * len);
+        ctx.lineTo(sx + fdx * len, sy + fdy * len);
+        ctx.stroke();
+      }
     }
 
     // Obstacles - dark body (source-over)
@@ -1473,6 +1586,9 @@ function renderBrain(canvas, brain) {
     document.getElementById('s-deaths').textContent = world.deaths;
     document.getElementById('s-species').textContent = world.countSpecies();
     document.getElementById('s-oldest').textContent = (world.oldestAge() / 60).toFixed(0) + 's';
+    const sp = world.seasonPhase;
+    const seasonName = sp > 0.75 ? 'summer' : sp > 0.5 ? 'spring' : sp > 0.25 ? 'autumn' : 'winter';
+    document.getElementById('s-season').textContent = seasonName;
     document.getElementById('s-time').textContent = min + ':' + sec;
   }
 

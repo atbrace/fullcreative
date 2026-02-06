@@ -6,7 +6,7 @@ Line numbers are approximate - check nearby if exact lines have shifted.
 ## File Structure
 
 ```
-emergence.html (~ 1490 lines)
+emergence.html (~ 1608 lines)
 |
 +-- HTML <head>              lines 1-6
 +-- CSS                      lines 7-135
@@ -18,36 +18,37 @@ emergence.html (~ 1490 lines)
 |   +-- Help panel           113-125
 |   +-- Pause indicator      127-134
 |
-+-- HTML <body>              lines 136-204
++-- HTML <body>              lines 136-205
 |   +-- #overlay             139-150
-|   +-- #stats               152-161
-|   +-- #speed-controls      163-167
-|   +-- #inspector           169-191
-|   +-- #help-panel          193-199
-|   +-- #pause-label         201
-|   +-- canvases             203-204
+|   +-- #stats               152-162
+|   +-- #speed-controls      164-168
+|   +-- #inspector           170-192
+|   +-- #help-panel          194-200
+|   +-- #pause-label         202
+|   +-- canvases             204-205
 |
-+-- <script>                 lines 206-1492
-    +-- CFG (config)         210-265
-    +-- INPUT_LABELS         267-268
-    +-- Vec2 + utilities     272-290
-    +-- Brain                295-350
-    +-- SpatialGrid          353-380
-    +-- Particle             384-392
-    +-- Hotspot              397-412
-    +-- Food                 415-422
-    +-- Obstacle             426-432
-    +-- Creature             438-612
-    +-- AudioEngine          616-708
-    +-- World                712-960
-    +-- Renderer             964-1220
-    +-- renderBrain()        1223-1353
-    +-- Main IIFE            1357-1492
++-- <script>                 lines 207-1608
+    +-- CFG (config)         211-277
+    +-- INPUT_LABELS         279-281
+    +-- Vec2 + utilities     283-302
+    +-- Brain                306-361
+    +-- SpatialGrid          364-391
+    +-- Particle             395-403
+    +-- Hotspot              408-423
+    +-- Food                 426-433
+    +-- Obstacle             437-443
+    +-- CurrentZone          447-468
+    +-- Creature             471-670
+    +-- AudioEngine          675-767
+    +-- World                771-1042
+    +-- Renderer             1046-1333
+    +-- renderBrain()        1336-1466
+    +-- Main IIFE            1470-1608
 ```
 
 ## Key Classes
 
-### Brain (295-350)
+### Brain (306-361)
 Recurrent neural network. `forward(sensory)` appends memory to sensory inputs,
 computes hidden+output activations, then feeds hidden[0..3] back as memory.
 Stores `lastInput`, `lastHidden`, `lastOutput` for the inspector.
@@ -56,20 +57,27 @@ Stores `lastInput`, `lastHidden`, `lastOutput` for the inspector.
 - `memory`: Float32Array(4) - recurrent state, zeroed in cloned children
 - `clone()` + `mutate(rate, amount)` for reproduction
 
-### Obstacle (426-432)
+### Obstacle (437-443)
 Simple circle: `pos` (Vec2) + `radius`. No methods - collision and perception
 logic lives in Creature. Generated in formations by `World._generateObstacles()`.
 
-### Creature (438-612)
+### CurrentZone (447-468)
+Drift force zone. `pos` (Vec2) + `angle` (flow direction) + `strength` + `radius`.
+Slowly drifts position and rotates angle over time via `drift()`. Generated 2-4
+per world by `World._generateCurrents()`. Applies quadratic-falloff force to
+creatures during `move()`.
+
+### Creature (471-670)
 The main entity. Key methods:
-- `perceive(foodGrid, creatureGrid, obstacles)` [455-530]: Queries spatial grids
+- `perceive(foodGrid, creatureGrid, obstacles)` [495-576]: Queries spatial grids
   for nearest food, nearest creature, nearest signaler per channel, and nearest
   obstacle surface. Returns 22-float sensory array.
   Also stores `_nfPos`, `_ncPos` for inspector visualization.
-- `think(inputs)` [532-537]: Runs brain forward pass, sets heading, speed, 3 signals.
-- `move(W, H, obstacles)` [539-580]: Pushes body trail, updates position, bounces
-  walls, collides with obstacles (push-out + heading reflection), deducts metabolism.
-- `reproduce()` [582-596]: Creates child with mutated genes and brain.
+- `think(inputs)` [578-584]: Runs brain forward pass, sets heading, speed, 3 signals.
+- `move(W, H, obstacles, currents)` [586-651]: Pushes body trail, updates position,
+  applies current zone drift, bounces walls with random perturbation, soft wall
+  repulsion, collides with obstacles (push-out + heading reflection), deducts metabolism.
+- `reproduce()` [653-667]: Creates child with mutated genes and brain.
 
 **Brain inputs (26 = 22 sensory + 4 recurrent):**
 | Index | Name   | Description                              |
@@ -126,37 +134,44 @@ The main entity. Key methods:
 | 19-21       | Slate blue  | Obstacle inputs  |
 | 22-25       | Orange      | Recurrent memory |
 
-### World (712-960)
+### World (771-1042)
 Simulation state and update loop. Key methods:
-- `seed()` [725-742]: Creates hotspots, generates obstacles, spawns creatures + food.
-- `_generateObstacles()` [744-782]: 4-7 formations of 2-5 overlapping circles each.
+- `seed()` [785-801]: Creates hotspots, generates obstacles + currents, spawns
+  creatures + food.
+- `_generateObstacles()` [803-840]: 4-7 formations of 2-5 overlapping circles each.
   Placement rejects positions near edges, center, hotspots, other formations.
-- `_spawnFood()` [784-808]: Gaussian distribution around random weighted hotspot.
+- `_generateCurrents()` [842-853]: 2-4 current zones with random position, angle,
+  strength, and radius.
+- `_spawnFood()` [855-879]: Gaussian distribution around random weighted hotspot.
   Retry loop rejects positions inside obstacles (up to 10 attempts).
-- `update(audio)` [818-870]: **The main simulation tick.** Order: spawn food,
-  rebuild grids, for each creature: perceive/think/move (with obstacles), check eat,
-  check predation, check reproduce, check death. Then cleanup dead entities, update
-  particles, population floor check, record population history.
-- `dayPhase` [816]: Getter, returns 0-1 sine wave over DAY_PERIOD ticks.
-- `creatureAt(x,y)` [940-950]: Hit-test for mouse selection.
+- `update(audio)` [897-1001]: **The main simulation tick.** Order: compute
+  day/season multipliers, drift hotspots (faster in winter) + currents, spawn food
+  (modulated by day+season), rebuild grids, for each creature: perceive/think/move
+  (with obstacles+currents), check eat, check predation, check reproduce, check death.
+  Then cleanup dead entities, update particles, population floor check, record
+  population history.
+- `dayPhase` [893]: Getter, returns 0-1 sine wave over DAY_PERIOD ticks.
+- `seasonPhase` [894]: Getter, returns 0-1 sine wave over SEASON_PERIOD ticks.
+- `creatureAt(x,y)` [1021-1031]: Hit-test for mouse selection.
 
-### Renderer (964-1220)
+### Renderer (1046-1333)
 Canvas drawing. Uses two canvases:
-- **Trail canvas** (behind): Semi-transparent fade + obstacle masking + creature
-  position dots each frame. Creates slowly fading light trails. Obstacles masked
-  with background color to prevent trail bleed.
-- **Main canvas** (front): Cleared each frame. Draws hotspot glows, obstacles
+- **Trail canvas** (behind): Semi-transparent fade with seasonal color temperature
+  (warm amber in summer, cool blue in winter) + obstacle masking + creature position
+  dots each frame. Creates slowly fading light trails.
+- **Main canvas** (front): Cleared each frame. Draws hotspot glows (dimmed in
+  winter), current zone indicators (subtle glow + animated flow streaks), obstacles
   (dark body + edge glow), food, creatures (body segments + signal rings + outer
   glow + core + heading dot + selection decorations), particles, vignette,
   population graph.
 - Blend mode: `lighter` for simulation elements, `source-over` for UI + obstacles.
 
-### renderBrain() (1223-1353)
+### renderBrain() (1336-1466)
 Draws the neural network visualization on the inspector's canvas. Three columns
 (input, hidden, output) with colored connections (blue=positive, red=negative)
 and activation-brightness nodes. Obstacle inputs colored slate blue.
 
-### AudioEngine (616-708)
+### AudioEngine (675-767)
 Web Audio API. Drone: 4 detuned sine oscillators through low-pass filter with
 LFO. Events: `birthPing()` (pentatonic sine), `eatClick()` (high sine),
 `deathThud()` (low sine), `predationSweep()` (descending sawtooth).
@@ -165,12 +180,14 @@ LFO. Events: `birthPing()` (pentatonic sine), `eatClick()` (high sine),
 
 ```
 1. World.update()
-   +-- Spawn food near hotspot (gaussian, reject inside obstacles)
+   +-- Compute day/season multipliers
+   +-- Drift hotspots (faster in winter) + current zones
+   +-- Spawn food near hotspot (gaussian, reject inside obstacles, rate * day * season)
    +-- Rebuild SpatialGrids (food + creatures)
    +-- For each creature:
    |   +-- creature.perceive() -> 22 sensory inputs (incl. nearest obstacle)
    |   +-- creature.think(inputs) -> brain.forward() -> set heading/speed/signal
-   |   +-- creature.move() -> update pos, bounce walls, collide obstacles, metabolism
+   |   +-- creature.move() -> update pos, apply current drift, bounce walls, collide obstacles, metabolism
    |   +-- Check food eating (spatial query, distance check)
    |   +-- Check predation (spatial query, size ratio check)
    |   +-- Check reproduction (energy threshold)
@@ -181,9 +198,10 @@ LFO. Events: `birthPing()` (pentatonic sine), `eatClick()` (high sine),
    +-- Record population history
 
 2. Renderer.render()
-   +-- Trail canvas: fade overlay + obstacle masking + creature position dots
+   +-- Trail canvas: seasonal color temp fade overlay + obstacle masking + creature dots
    +-- Main canvas (lighter blend):
-   |   +-- Hotspot glows
+   |   +-- Hotspot glows (dimmed in winter)
+   |   +-- Current zone indicators (glow + animated flow streaks)
    |   +-- Obstacles (source-over dark body, then lighter edge glow)
    |   +-- Food (pulsing glow + core dot)
    |   +-- Creatures (body segments, signal ring, outer glow, core, heading dot)
