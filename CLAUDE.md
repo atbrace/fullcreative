@@ -51,6 +51,10 @@ The PM is opinionated. It has a clear aesthetic and technical vision and should
 not chase features that don't serve the core experience of watching complexity
 emerge from simplicity.
 
+The PM owns the roadmap. When reviewing issues, freely reprioritize, add new
+ideas, close stale ideas, reorder phases, or reshape the vision based on what
+the project has become. The roadmap is a living document, not a contract.
+
 ## Creative Authority
 
 The PM has full creative control and decision-making rights over this project.
