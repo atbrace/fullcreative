@@ -84,6 +84,13 @@ biggest bottleneck to emergent complexity.
 A flat world with scattered food doesn't create enough selection pressure for
 interesting navigation, territory, or migration strategies.
 
+**Completed:**
+- Terrain obstacles (2026-02-06): 4-7 rock formations of 2-5 overlapping circles.
+  Dark formations with subtle edge glow. Creature collision with heading reflection.
+  3 new brain inputs (ob.s, ob.c, ob.d) - brain now 26-12-5. Food spawn rejection
+  inside obstacles. Population floor bumped to 10 (reseed 20) to compensate for
+  larger brain search space.
+
 **Remaining:** See GitHub Issues labeled `phase-2`.
 
 ### Phase 3: Social Dynamics
@@ -208,3 +215,31 @@ misses. The counterintuitive finding about initial energy (lower is better
 because it accelerates selection) reinforces the project philosophy: don't
 engineer solutions, let evolution find them. The population floor provides a
 safety net without weakening selection pressure.
+
+### Session 6 - 2026-02-06
+**Built:** Terrain obstacles (#3) - first Phase 2 feature.
+1. Rock formation generation: 4-7 formations of 2-5 overlapping circles each,
+   placed with margin constraints (away from edges, center, hotspots, each other).
+   ~15-25 obstacle circles per world. Gaussian spread within formations creates
+   natural-looking irregular rock clusters.
+2. Creature perception: 3 new brain inputs (ob.s, ob.c, ob.d) for nearest obstacle
+   surface direction and distance. Brain grew from 23-12-5 to 26-12-5 (22 sensory +
+   4 recurrent). Obstacle inputs colored slate blue in brain visualization.
+3. Creature collision: push-out to obstacle surface + heading reflection. Dot-product
+   check prevents double-reflection when already moving away.
+4. Food spawn rejection: retry loop (up to 10 attempts) rejects food positions
+   inside any obstacle circle. Squared distance check avoids sqrt.
+5. Rendering: dark radial gradient body (source-over) + subtle edge glow ring
+   (lighter blend). Trail canvas masks obstacle interiors each frame.
+6. Population floor bumped from 5/10 to 10/20 to compensate for the larger brain
+   search space - random 26-input brains are less likely to stumble into food-seeking
+   behavior than 23-input ones.
+
+**Learned:** The Session 5 prediction was correct - going from 23 to 26 brain
+inputs made evolution significantly harder to bootstrap. Initial benchmarks showed
+population stuck at 5-8 (floor level). Bumping the population floor to 10/20 fixed
+it: evolution now bootstraps in ~30 seconds, then population booms to 60-80 before
+natural carrying capacity dynamics create boom-bust cycles. The boom-bust pattern is
+actually more interesting to watch than a flat steady state - it creates narrative
+(expansion, resource depletion, crash, recovery). Obstacle collision and food
+rejection both verified via Playwright: 0 creatures and 0 food inside obstacles.

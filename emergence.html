@@ -236,7 +236,7 @@ const CFG = {
   REPRODUCE_GIVE: 0.38,
   BODY_SEGMENTS: 5,
 
-  BRAIN_INPUTS: 23,
+  BRAIN_INPUTS: 26,
   BRAIN_HIDDEN: 12,
   BRAIN_OUTPUTS: 5,
   BRAIN_RECURRENT: 4,
@@ -250,10 +250,22 @@ const CFG = {
   GRID_CELL: 70,
   DAY_PERIOD: 3600,
 
+  OBS_FORMATIONS_MIN: 4,
+  OBS_FORMATIONS_MAX: 7,
+  OBS_CIRCLES_MIN: 2,
+  OBS_CIRCLES_MAX: 5,
+  OBS_RADIUS_MIN: 18,
+  OBS_RADIUS_MAX: 42,
+  OBS_SPREAD: 22,
+  OBS_MARGIN_EDGE: 120,
+  OBS_MARGIN_CENTER: 150,
+  OBS_MARGIN_HOTSPOT: 100,
+  OBS_MARGIN_FORMATION: 100,
+
   BG: [8, 8, 26],
 };
 
-const INPUT_LABELS = ['fd.s','fd.c','fd.d','cr.s','cr.c','cr.d','cr.z','s0.s','s0.c','s0.v','s1.s','s1.c','s1.v','s2.s','s2.c','s2.v','nrg','1.0','kin','m.0','m.1','m.2','m.3'];
+const INPUT_LABELS = ['fd.s','fd.c','fd.d','cr.s','cr.c','cr.d','cr.z','s0.s','s0.c','s0.v','s1.s','s1.c','s1.v','s2.s','s2.c','s2.v','nrg','1.0','kin','ob.s','ob.c','ob.d','m.0','m.1','m.2','m.3'];
 const OUTPUT_LABELS = ['turn','spd','sg0','sg1','sg2'];
 const SIGNAL_HUES = [30, 200, 320]; // gold, blue, magenta - universal per channel
 
@@ -409,6 +421,16 @@ class Food {
 }
 
 // ================================================================
+//  OBSTACLE
+// ================================================================
+class Obstacle {
+  constructor(x, y, radius) {
+    this.pos = new Vec2(x, y);
+    this.radius = radius;
+  }
+}
+
+// ================================================================
 //  CREATURE
 // ================================================================
 let cidCounter = 0;
@@ -437,7 +459,7 @@ class Creature {
     return new Creature(x, y, genes, new Brain(CFG.BRAIN_INPUTS, CFG.BRAIN_HIDDEN, CFG.BRAIN_OUTPUTS).randomize(), 0);
   }
 
-  perceive(foodGrid, creatureGrid) {
+  perceive(foodGrid, creatureGrid, obstacles) {
     const vr = CFG.VISION_RANGE;
     const nSensory = CFG.BRAIN_INPUTS - CFG.BRAIN_RECURRENT;
     const inp = new Float32Array(nSensory);
@@ -499,6 +521,22 @@ class Creature {
       }
     }
 
+    // --- Nearest obstacle (surface distance) ---
+    let boDist = Infinity, boAngle = 0;
+    for (let i = 0; i < obstacles.length; i++) {
+      const ob = obstacles[i];
+      const dx = ob.pos.x - this.pos.x, dy = ob.pos.y - this.pos.y;
+      const cd = Math.sqrt(dx * dx + dy * dy);
+      const sd = cd - ob.radius; // surface distance
+      if (sd < vr && sd < boDist) {
+        boDist = sd; boAngle = Math.atan2(dy, dx);
+      }
+    }
+    if (boDist < Infinity) {
+      const ra = wrapAngle(boAngle - this.heading);
+      inp[19] = Math.sin(ra); inp[20] = Math.cos(ra); inp[21] = clamp(boDist / vr, 0, 1);
+    } else { inp[21] = 1; }
+
     inp[16] = clamp(this.energy / CFG.ENERGY_MAX, 0, 1);
     inp[17] = 1; // bias
     return inp;
@@ -512,7 +550,7 @@ class Creature {
       this.signals[ch] = (out[2 + ch] + 1) * 0.5; // 0..1
   }
 
-  move(W, H) {
+  move(W, H, obstacles) {
     // Store body trail (push before moving)
     this.body.push({ x: this.pos.x, y: this.pos.y });
     if (this.body.length > CFG.BODY_SEGMENTS) this.body.shift();
@@ -525,6 +563,29 @@ class Creature {
     if (this.pos.x > W - r) { this.pos.x = W - r; this.heading = Math.PI - this.heading; }
     if (this.pos.y < r) { this.pos.y = r; this.heading = -this.heading; }
     if (this.pos.y > H - r) { this.pos.y = H - r; this.heading = -this.heading; }
+
+    // Obstacle collision
+    for (let i = 0; i < obstacles.length; i++) {
+      const ob = obstacles[i];
+      const dx = this.pos.x - ob.pos.x, dy = this.pos.y - ob.pos.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      const minDist = ob.radius + r;
+      if (dist < minDist && dist > 0) {
+        // Push out to surface
+        const nx = dx / dist, ny = dy / dist;
+        this.pos.x = ob.pos.x + nx * minDist;
+        this.pos.y = ob.pos.y + ny * minDist;
+        // Reflect heading if moving toward obstacle
+        const dot = Math.cos(this.heading) * nx + Math.sin(this.heading) * ny;
+        if (dot < 0) {
+          // Reflect: h = h - 2*(h.n)*n
+          const hx = Math.cos(this.heading) - 2 * dot * nx;
+          const hy = Math.sin(this.heading) - 2 * dot * ny;
+          this.heading = Math.atan2(hy, hx);
+        }
+      }
+    }
+
     this.heading = wrapAngle(this.heading);
 
     const sizeCost = Math.pow(this.genes.size, CFG.METABOLISM_SIZE_EXP);
@@ -655,6 +716,7 @@ class World {
     this.foodGrid = new SpatialGrid(w, h, CFG.GRID_CELL);
     this.creatureGrid = new SpatialGrid(w, h, CFG.GRID_CELL);
     this.hotspots = [];
+    this.obstacles = [];
     this.tick = 0; this.births = 0; this.deaths = 0; this.maxGen = 0;
     this.popHistory = [];
     this.paused = false;
@@ -664,27 +726,87 @@ class World {
   seed() {
     for (let i = 0; i < CFG.NUM_HOTSPOTS; i++)
       this.hotspots.push(new Hotspot(rand(100, this.w - 100), rand(100, this.h - 100)));
-    for (let i = 0; i < CFG.INITIAL_CREATURES; i++)
-      this.creatures.push(Creature.createRandom(rand(40, this.w - 40), rand(40, this.h - 40)));
+    this._generateObstacles();
+    for (let i = 0; i < CFG.INITIAL_CREATURES; i++) {
+      let x, y, ok;
+      do {
+        x = rand(40, this.w - 40); y = rand(40, this.h - 40); ok = true;
+        for (let j = 0; j < this.obstacles.length; j++) {
+          if (this.obstacles[j].pos.dist({ x, y }) < this.obstacles[j].radius + 15) { ok = false; break; }
+        }
+      } while (!ok);
+      this.creatures.push(Creature.createRandom(x, y));
+    }
     for (let i = 0; i < CFG.INITIAL_FOOD; i++)
       this.food.push(this._spawnFood());
+  }
+
+  _generateObstacles() {
+    const nFormations = randInt(CFG.OBS_FORMATIONS_MIN, CFG.OBS_FORMATIONS_MAX + 1);
+    const cx = this.w / 2, cy = this.h / 2;
+    const centers = []; // formation center points for spacing check
+
+    for (let f = 0; f < nFormations; f++) {
+      // Find valid formation center
+      let fx, fy, valid, attempts = 0;
+      do {
+        fx = rand(CFG.OBS_MARGIN_EDGE, this.w - CFG.OBS_MARGIN_EDGE);
+        fy = rand(CFG.OBS_MARGIN_EDGE, this.h - CFG.OBS_MARGIN_EDGE);
+        valid = true;
+        // Not too close to center
+        if (Math.sqrt((fx - cx) * (fx - cx) + (fy - cy) * (fy - cy)) < CFG.OBS_MARGIN_CENTER) valid = false;
+        // Not too close to hotspots
+        if (valid) for (let i = 0; i < this.hotspots.length; i++) {
+          const dx = fx - this.hotspots[i].x, dy = fy - this.hotspots[i].y;
+          if (Math.sqrt(dx * dx + dy * dy) < CFG.OBS_MARGIN_HOTSPOT) { valid = false; break; }
+        }
+        // Not too close to other formations
+        if (valid) for (let i = 0; i < centers.length; i++) {
+          const dx = fx - centers[i].x, dy = fy - centers[i].y;
+          if (Math.sqrt(dx * dx + dy * dy) < CFG.OBS_MARGIN_FORMATION) { valid = false; break; }
+        }
+        attempts++;
+      } while (!valid && attempts < 60);
+      if (!valid) continue; // skip this formation if no valid spot found
+
+      centers.push({ x: fx, y: fy });
+      const nCircles = randInt(CFG.OBS_CIRCLES_MIN, CFG.OBS_CIRCLES_MAX + 1);
+      for (let c = 0; c < nCircles; c++) {
+        const ox = fx + gaussRand() * CFG.OBS_SPREAD;
+        const oy = fy + gaussRand() * CFG.OBS_SPREAD;
+        const or = rand(CFG.OBS_RADIUS_MIN, CFG.OBS_RADIUS_MAX);
+        this.obstacles.push(new Obstacle(ox, oy, or));
+      }
+    }
   }
 
   _spawnFood() {
     // Weighted random hotspot
     let total = 0;
     for (let i = 0; i < this.hotspots.length; i++) total += this.hotspots[i].strength;
-    let r = Math.random() * total;
-    let hs = this.hotspots[0];
-    for (let i = 0; i < this.hotspots.length; i++) {
-      r -= this.hotspots[i].strength;
-      if (r <= 0) { hs = this.hotspots[i]; break; }
+
+    for (let attempt = 0; attempt < 10; attempt++) {
+      let r = Math.random() * total;
+      let hs = this.hotspots[0];
+      for (let i = 0; i < this.hotspots.length; i++) {
+        r -= this.hotspots[i].strength;
+        if (r <= 0) { hs = this.hotspots[i]; break; }
+      }
+      const sp = CFG.HOTSPOT_SPREAD;
+      const fx = clamp(hs.x + gaussRand() * sp, 8, this.w - 8);
+      const fy = clamp(hs.y + gaussRand() * sp, 8, this.h - 8);
+
+      // Reject if inside an obstacle
+      let blocked = false;
+      for (let i = 0; i < this.obstacles.length; i++) {
+        const ob = this.obstacles[i];
+        const dx = fx - ob.pos.x, dy = fy - ob.pos.y;
+        if (dx * dx + dy * dy < ob.radius * ob.radius) { blocked = true; break; }
+      }
+      if (!blocked) return new Food(fx, fy);
     }
-    const sp = CFG.HOTSPOT_SPREAD;
-    return new Food(
-      clamp(hs.x + gaussRand() * sp, 8, this.w - 8),
-      clamp(hs.y + gaussRand() * sp, 8, this.h - 8)
-    );
+    // Fallback: random position
+    return new Food(rand(8, this.w - 8), rand(8, this.h - 8));
   }
 
   spawnP(x, y, hue, count, speed, life, size) {
@@ -723,9 +845,9 @@ class World {
       const c = this.creatures[i];
       if (!c.alive) continue;
 
-      const inp = c.perceive(this.foodGrid, this.creatureGrid);
+      const inp = c.perceive(this.foodGrid, this.creatureGrid, this.obstacles);
       c.think(inp);
-      c.move(this.w, this.h);
+      c.move(this.w, this.h, this.obstacles);
 
       // Eat food
       const nf = this.foodGrid.query(c.pos.x, c.pos.y, c.radius + CFG.EAT_RANGE);
@@ -786,11 +908,19 @@ class World {
     if (this.selected && !this.selected.alive) this.selected = null;
 
     // Population floor - prevent extinction spirals
-    const MIN_POP = 5;
+    const MIN_POP = 10;
     if (this.creatures.length < MIN_POP) {
-      const needed = MIN_POP + 5 - this.creatures.length;
-      for (let i = 0; i < needed; i++)
-        this.creatures.push(Creature.createRandom(rand(40, this.w - 40), rand(40, this.h - 40)));
+      const needed = MIN_POP + 10 - this.creatures.length;
+      for (let i = 0; i < needed; i++) {
+        let x, y, ok;
+        do {
+          x = rand(40, this.w - 40); y = rand(40, this.h - 40); ok = true;
+          for (let j = 0; j < this.obstacles.length; j++) {
+            if (this.obstacles[j].pos.dist({ x, y }) < this.obstacles[j].radius + 15) { ok = false; break; }
+          }
+        } while (!ok);
+        this.creatures.push(Creature.createRandom(x, y));
+      }
     }
 
     if (this.tick % 10 === 0) {
@@ -868,6 +998,13 @@ class Renderer {
     tctx.fillStyle = `rgba(${bgR},${bgG},${bgB},${trailFade})`;
     tctx.fillRect(0, 0, W, H);
 
+    // Mask obstacle interiors on trail canvas
+    tctx.fillStyle = `rgb(${br},${bg},${bb})`;
+    for (let i = 0; i < world.obstacles.length; i++) {
+      const ob = world.obstacles[i];
+      tctx.beginPath(); tctx.arc(ob.pos.x, ob.pos.y, ob.radius, 0, 6.283); tctx.fill();
+    }
+
     for (let i = 0; i < world.creatures.length; i++) {
       const c = world.creatures[i];
       const en = clamp(c.energy / CFG.ENERGY_MAX, 0, 1);
@@ -891,6 +1028,29 @@ class Renderer {
       ctx.beginPath();
       ctx.arc(hs.x, hs.y, CFG.HOTSPOT_SPREAD * 1.2, 0, 6.283);
       ctx.fill();
+    }
+
+    // Obstacles - dark body (source-over)
+    ctx.globalCompositeOperation = 'source-over';
+    for (let i = 0; i < world.obstacles.length; i++) {
+      const ob = world.obstacles[i];
+      const grad = ctx.createRadialGradient(ob.pos.x, ob.pos.y, ob.radius * 0.3, ob.pos.x, ob.pos.y, ob.radius);
+      grad.addColorStop(0, 'rgba(12, 12, 28, 0.9)');
+      grad.addColorStop(0.7, 'rgba(15, 15, 32, 0.85)');
+      grad.addColorStop(1, 'rgba(18, 18, 36, 0.6)');
+      ctx.fillStyle = grad;
+      ctx.beginPath(); ctx.arc(ob.pos.x, ob.pos.y, ob.radius, 0, 6.283); ctx.fill();
+    }
+    // Obstacles - subtle edge glow (lighter)
+    ctx.globalCompositeOperation = 'lighter';
+    for (let i = 0; i < world.obstacles.length; i++) {
+      const ob = world.obstacles[i];
+      const grad = ctx.createRadialGradient(ob.pos.x, ob.pos.y, ob.radius * 0.85, ob.pos.x, ob.pos.y, ob.radius * 1.15);
+      grad.addColorStop(0, 'rgba(0, 0, 0, 0)');
+      grad.addColorStop(0.5, 'rgba(35, 40, 70, 0.06)');
+      grad.addColorStop(1, 'rgba(25, 30, 55, 0)');
+      ctx.fillStyle = grad;
+      ctx.beginPath(); ctx.arc(ob.pos.x, ob.pos.y, ob.radius * 1.15, 0, 6.283); ctx.fill();
     }
 
     // Food
@@ -1111,6 +1271,7 @@ function renderBrain(canvas, brain) {
   const nr = 4;
   const memStart = ni - CFG.BRAIN_RECURRENT;
   const sigInputStart = 7, sigInputEnd = 7 + CFG.SIGNAL_CHANNELS * 3; // signal input range
+  const obsInputStart = 19, obsInputEnd = 22; // obstacle input range
   const sigOutputStart = 2; // signal output range starts at index 2
 
   function signalChannelColor(ch, alpha) {
@@ -1120,6 +1281,7 @@ function renderBrain(canvas, brain) {
 
   function getInputColor(i, av) {
     if (i >= memStart) return `rgba(220, 160, 60, ${Math.max(av, 0.15) * 0.85})`;
+    if (i >= obsInputStart && i < obsInputEnd) return `rgba(120, 140, 180, ${Math.max(av, 0.15) * 0.85})`;
     if (i >= sigInputStart && i < sigInputEnd) {
       const ch = Math.floor((i - sigInputStart) / 3);
       return signalChannelColor(ch, Math.max(av, 0.15) * 0.85);
@@ -1138,6 +1300,7 @@ function renderBrain(canvas, brain) {
 
   function getStrokeColor(i, layer) {
     if (layer === 0 && i >= memStart) return 'rgba(180, 140, 50, 0.4)';
+    if (layer === 0 && i >= obsInputStart && i < obsInputEnd) return 'rgba(100, 120, 160, 0.4)';
     if (layer === 0 && i >= sigInputStart && i < sigInputEnd) {
       const ch = Math.floor((i - sigInputStart) / 3);
       return signalChannelColor(ch, 0.35);
@@ -1169,6 +1332,7 @@ function renderBrain(canvas, brain) {
   ctx.textAlign = 'right';
   for (let i = 0; i < ni; i++) {
     if (i >= memStart) ctx.fillStyle = 'rgba(220, 160, 60, 0.6)';
+    else if (i >= obsInputStart && i < obsInputEnd) ctx.fillStyle = 'rgba(120, 140, 180, 0.6)';
     else if (i >= sigInputStart && i < sigInputEnd) {
       const ch = Math.floor((i - sigInputStart) / 3);
       ctx.fillStyle = signalChannelColor(ch, 0.55);
