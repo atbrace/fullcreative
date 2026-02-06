@@ -266,9 +266,9 @@ const CFG = {
   // Current zones
   CURRENT_ZONES_MIN: 2,
   CURRENT_ZONES_MAX: 4,
-  CURRENT_RADIUS_MIN: 160,
-  CURRENT_RADIUS_MAX: 340,
-  CURRENT_STRENGTH: 0.35,
+  CURRENT_RADIUS_MIN: 200,
+  CURRENT_RADIUS_MAX: 450,
+  CURRENT_STRENGTH: 0.08,
 
   // Seasonal cycles
   SEASON_PERIOD: 14400,
@@ -902,7 +902,7 @@ class World {
     const dayMul = 0.6 + this.dayPhase * 0.8; // 0.6 to 1.4
 
     // Seasonal cycle modulates food abundance
-    const seasonMul = 0.5 + this.seasonPhase * 0.7; // 0.5 (winter) to 1.2 (summer)
+    const seasonMul = 0.7 + this.seasonPhase * 0.45; // 0.7 (winter) to 1.15 (summer)
 
     // Hotspot drift (faster in winter - resource instability)
     const driftRate = this.seasonPhase < 0.3 ? 2 : 3;
@@ -990,9 +990,12 @@ class World {
     if (this.selected && !this.selected.alive) this.selected = null;
 
     // Population floor - prevent extinction spirals
-    const MIN_POP = 10;
+    const MIN_POP = 15;
     if (this.creatures.length < MIN_POP) {
-      const needed = MIN_POP + 10 - this.creatures.length;
+      const needed = MIN_POP + 15 - this.creatures.length;
+      // Sort survivors by energy - best adapted get to seed offspring
+      const alive = this.creatures.filter(c => c.alive);
+      alive.sort((a, b) => b.energy - a.energy);
       for (let i = 0; i < needed; i++) {
         let x, y, ok;
         do {
@@ -1001,7 +1004,20 @@ class World {
             if (this.obstacles[j].pos.dist({ x, y }) < this.obstacles[j].radius + 15) { ok = false; break; }
           }
         } while (!ok);
-        this.creatures.push(Creature.createRandom(x, y));
+        // 50% mutated offspring of best survivors, 50% random (genetic diversity)
+        if (alive.length > 0 && Math.random() < 0.5) {
+          const parent = alive[i % alive.length];
+          const genes = {
+            hue: (parent.genes.hue + rand(-CFG.HUE_MUTATION * 2, CFG.HUE_MUTATION * 2) + 360) % 360,
+            size: clamp(parent.genes.size + rand(-0.12, 0.12), 0.5, 2.0),
+            speedGene: clamp(parent.genes.speedGene + rand(-0.12, 0.12), 0.5, 2.0),
+          };
+          const brain = parent.brain.clone();
+          brain.mutate(CFG.MUTATION_RATE * 1.5, CFG.MUTATION_AMOUNT * 1.5);
+          this.creatures.push(new Creature(x, y, genes, brain, parent.generation + 1));
+        } else {
+          this.creatures.push(Creature.createRandom(x, y));
+        }
       }
     }
 

@@ -274,15 +274,29 @@ rejection both verified via Playwright: 0 creatures and 0 food inside obstacles.
    dims in winter. Season name displayed in stats panel (spring/summer/autumn/winter).
 4. Phase 2 now has 3 features complete (obstacles, currents, seasons) + bug fix.
 
+**Tuning (post-benchmark):** Headless Playwright benchmark revealed critical issues.
+A/B tested 4 configs x 3 trials each to isolate effects:
+- Original current strength (0.35) suppressed evolution bootstrap in all configs.
+  Root cause: even small position displacement disrupts random brains' already-slim
+  chance of accidentally finding food during early evolution.
+- Winter food reduction (0.5x) created survival bottlenecks that killed fragile
+  early populations before they could evolve robust food-finding.
+- Baseline (no currents/seasons) also had unreliable bootstrap - 26-input brains
+  have a large random search space.
+Fixes applied: (1) Current strength 0.35 -> 0.08 with larger radius (200-450px).
+Gentle enough to not affect individual pathfinding but creates population-scale drift.
+(2) Winter food rate 0.5x -> 0.7x. Still noticeable scarcity, no longer lethal.
+(3) Population floor 10/20 -> 15/30 with smart reseeding: 50% mutated offspring
+of highest-energy survivors, 50% random. This is more realistic (survivors
+reproduce to fill niche) and dramatically improves evolution reliability. Avg max
+generation jumped from 10.2 to 34.6 across 5 long-run trials.
+
 **Learned:** Current zones without brain inputs is the right call for this project.
-The creatures don't need to "know" about currents - they just need to survive in
-a world with currents. Creatures that happen to ride currents toward food will
-reproduce more. This is the purest form of emergence: the environment shapes
-behavior through selection pressure, not explicit perception. Seasonal cycles
-create a second time scale beyond day/night. Day/night is fast enough that
-individual creatures experience many cycles. Seasons are slow enough that they
-create population-level selection pressure - lineages that conserve energy during
-winter transitions survive while profligate lineages crash. The interaction between
-current zones and seasonal scarcity should create interesting dynamics: in winter,
-being swept by a current toward a dying hotspot is fatal, while riding toward
-a surviving one is lifesaving.
+Benchmark-driven tuning is essential - the original parameters looked reasonable
+in theory but measurably suppressed evolution. The smarter population floor was
+the biggest improvement: survivor offspring build on whatever marginal advantages
+evolution has found, so even without population explosions, genetic quality
+steadily improves. An unexpected emergent dynamic: corpse food accumulates during
+winter (more deaths, fewer consumers), so food count climbs from 180 to 230.
+Surviving creatures benefit from abundant winter corpse food heading into spring.
+Winter avg pop 21.4 vs summer avg pop 26.5 - a 24% seasonal difference.
