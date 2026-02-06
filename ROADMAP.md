@@ -184,3 +184,27 @@ viewers can learn the "visual language" and read inter-creature communication at
 a glance. The decision to let danger memory emerge rather than engineer it was
 the right call for this project's philosophy - every shortcut we add is one less
 opportunity for evolution to surprise us. Phase 1 is now complete.
+
+### Session 5 - 2026-02-06
+**Built:** Population stability fix. Planned terrain obstacles (#3).
+1. Discovered via Playwright visual QA that the ecosystem was collapsing -
+   population would crash to 1 creature within 30 seconds and never recover.
+   Root cause: auto-reseed only triggered at population 0, not near-extinction.
+2. Added population floor: when pop drops below 5, reseed with 10 fresh
+   random creatures. This single change transformed the simulation. Benchmarked
+   across 3 trials: all recovered to 39-46 creatures within 60 seconds.
+3. Tested increasing ENERGY_INITIAL from 80 to 100 - this was WORSE. Higher
+   initial energy lets bad random brains linger longer, occupying population
+   slots and slowing evolution. Reverted. Strong selection pressure is a feature.
+4. Planned terrain obstacles (#3) for Phase 2. Full implementation plan written
+   covering: Obstacle class, rock formation generation, creature collision,
+   3 new brain perception inputs (ob.s/ob.c/ob.d), food spawn rejection,
+   rendering as dark formations with edge glow, brain viz coloring.
+
+**Learned:** Visual QA via Playwright headless browser is invaluable - the
+population collapse was invisible from code review alone. Benchmark-driven
+tuning (3 parallel trials, 5-second sampling) gives clear signal that intuition
+misses. The counterintuitive finding about initial energy (lower is better
+because it accelerates selection) reinforces the project philosophy: don't
+engineer solutions, let evolution find them. The population floor provides a
+safety net without weakening selection pressure.

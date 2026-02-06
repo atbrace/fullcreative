@@ -785,9 +785,11 @@ class World {
     // Deselect if dead
     if (this.selected && !this.selected.alive) this.selected = null;
 
-    // Auto-reseed
-    if (this.creatures.length === 0) {
-      for (let i = 0; i < 12; i++)
+    // Population floor - prevent extinction spirals
+    const MIN_POP = 5;
+    if (this.creatures.length < MIN_POP) {
+      const needed = MIN_POP + 5 - this.creatures.length;
+      for (let i = 0; i < needed; i++)
         this.creatures.push(Creature.createRandom(rand(40, this.w - 40), rand(40, this.h - 40)));
     }
 
