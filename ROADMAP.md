@@ -64,42 +64,15 @@ The current brain is memoryless - creatures can't learn temporal patterns, can't
 remember where food was, can't develop sequential behaviors. This is the single
 biggest bottleneck to emergent complexity.
 
-- [ ] **Recurrent connections**: Add 4 recurrent neurons that feed their previous
-  output back as input. This gives creatures a form of short-term memory. Their
-  brain becomes a 16-12-3 network (12 sensory + 4 recurrent inputs). The recurrent
-  neurons are part of the hidden layer output that gets fed back. This is the
-  simplest path to temporal behavior.
-
-  **Implementation spec:**
-  1. `CFG`: Change `BRAIN_INPUTS` to 16. Add `BRAIN_RECURRENT: 4`.
-  2. `Brain` class: Add `this.memory = new Float32Array(4)` in constructor.
-     Modify `forward(sensoryInput)` to:
-     - Build `fullInput[16]`: copy 12 sensory values, then append 4 memory values
-     - Compute hidden layer from 16 inputs (wih is now 16x12 = 192 weights)
-     - After computing hidden, copy `hidden[0..3]` into `this.memory` for next tick
-     - Store `fullInput` in `lastInput` (not just sensory) so brain viz shows memory
-     - Output computation unchanged (12 hidden -> 3 outputs)
-  3. `Brain.randomize()`: No change needed (arrays auto-size from ni*nh).
-  4. `Brain.clone()`: Reset `memory` to zeros in child (clean slate, not inherited).
-  5. `Creature.think()`: Pass 12-element sensory array to `brain.forward()`.
-     Brain internally prepends memory. No change to Creature code.
-  6. `INPUT_LABELS`: Append `['m.0','m.1','m.2','m.3']` (total 16 labels).
-  7. `renderBrain()`: Already reads `brain.ni` dynamically. Node layout will
-     auto-adjust for 16 inputs. Consider adding a visual separator or color
-     distinction for the 4 memory inputs (e.g., orange instead of default).
-  8. Performance: 16x12 = 192 vs 12x12 = 144 multiply-adds. +33%. Negligible.
-  9. **Validation**: After implementing, select a creature and watch the brain
-     viz. The 4 memory nodes (m.0-m.3) should show sustained activation that
-     persists across frames, unlike sensory inputs which flicker. If memory
-     nodes are always near zero, the mutation rate may need tuning.
+- [x] **Recurrent connections** (2026-02-06): 4 recurrent neurons feed hidden[0..3]
+  back as input. Brain is now 17-12-3 (13 sensory + 4 memory). Memory nodes shown
+  in orange in brain viz. Children start with zeroed memory.
 - [ ] **Multiple signal channels**: Instead of one signal output, give creatures
   2-3 signal channels (different "frequencies"). Others can sense each channel
   independently. This creates the substrate for differentiated communication -
   one channel for food, another for danger, etc. Evolution decides the meaning.
-- [ ] **Kin recognition input**: Add a brain input for hue-similarity to nearest
-  creature (-1 = opposite hue, +1 = same hue). This gives evolution the raw
-  material to develop kin-selection behaviors: cooperate with relatives, compete
-  with strangers.
+- [x] **Kin recognition input** (2026-02-06): Brain input at index 12 for hue
+  similarity to nearest creature (-1 = opposite, +1 = same). Circular hue math.
 - [ ] **Danger memory**: With recurrent connections, creatures could learn to
   associate certain directions with recent predation events. Verify this emerges
   naturally or consider adding a "was I recently attacked" input.
@@ -145,20 +118,10 @@ social relationships) and Phase 2 (creatures need territory to compete over).
   above the energy threshold must find a willing partner. Both parents contribute
   brain weights (crossover + mutation). This creates sexual selection pressure
   and accelerates evolution.
-- [ ] **Corpse food**: When creatures die, they leave behind a food item with
-  energy proportional to their size. Creates scavenging as a viable strategy
-  and adds ecological cycling.
-
-  **Implementation spec (quick win - can be done alongside other work):**
-  1. Create `Corpse` class (or reuse `Food` with a `type` field and higher energy).
-     Simplest: just spawn a Food at death position with energy = creature's size * 15.
-  2. In `World.update()`, death block (~line 738): after setting `c.alive = false`,
-     push a new Food at `c.pos` (if food count < MAX_FOOD + 50).
-  3. Visual: corpse food should look different from plant food. Use a warm hue
-     (match the dead creature's hue) instead of green. Modify Food class to accept
-     optional `hue` parameter. Renderer checks `food.hue` and uses it if set.
-  4. This is ~15 lines of code but creates scavenger niches, energy recycling,
-     and makes death sites visually meaningful (colored dots where creatures fell).
+- [x] **Corpse food** (2026-02-06): Dead creatures drop food at their position
+  colored by their hue (energy = size * 15). Food class extended with optional
+  hue/energy. Renderer shows corpse food in creature's color vs green for plants.
+  Only starvation deaths drop corpses (predation already transfers energy).
 
 ### Phase 4: Spectator Intelligence
 *Make the simulation legible, narratable, and shareable.*
@@ -255,3 +218,19 @@ Oldest creature stat.
 user engagement. Watching a creature's brain fire while it makes decisions creates
 genuine connection with the simulation. Future features should prioritize things
 that make the creatures feel more "alive" and their decisions more legible.
+
+### Session 3 - 2026-02-06
+**Built:** Phase 1 cognitive depth - three features in one pass:
+1. Recurrent connections: 4 memory neurons (hidden[0..3] fed back as input).
+   Brain is now 17-12-3. Memory nodes rendered in orange in brain viz.
+2. Kin recognition: hue-similarity input at index 12. Circular distance on
+   the hue wheel, normalized to -1 (opposite) to +1 (same species).
+3. Corpse food (Phase 3 quick win): starvation deaths drop colored food at
+   the death site. Food class extended with optional hue and energy fields.
+   Renderer distinguishes plant food (green) from corpse food (creature hue).
+
+**Learned:** All three features touch overlapping code paths (brain input array,
+creature perception, world update loop), so batching them into one session was
+the right call - doing them separately would have meant three passes through the
+same functions. The recurrent memory spec in the roadmap was almost directly
+translatable to code. Having detailed specs before implementation is valuable.

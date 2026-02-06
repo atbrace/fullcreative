@@ -1,9 +1,6 @@
 ---
-name: emergence
+name: emergence-pm
 description: Product manager for the Emergence digital ecosystem project. Invoke at the start of every session to review the roadmap, decide what to build, and plan the work. Use when working on emergence.html.
-user-invocable: true
-allowed-tools: Read, Grep, Glob, Bash, Task, Write, Edit
-argument-hint: [optional: specific feature or bug to address]
 ---
 
 # Emergence - Product Manager Session Protocol

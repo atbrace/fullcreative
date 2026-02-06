@@ -236,9 +236,10 @@ const CFG = {
   REPRODUCE_GIVE: 0.38,
   BODY_SEGMENTS: 5,
 
-  BRAIN_INPUTS: 12,
+  BRAIN_INPUTS: 17,
   BRAIN_HIDDEN: 12,
   BRAIN_OUTPUTS: 3,
+  BRAIN_RECURRENT: 4,
   MUTATION_RATE: 0.12,
   MUTATION_AMOUNT: 0.25,
   HUE_MUTATION: 8,
@@ -251,7 +252,7 @@ const CFG = {
   BG: [8, 8, 26],
 };
 
-const INPUT_LABELS = ['fd.s','fd.c','fd.d','cr.s','cr.c','cr.d','cr.z','sg.s','sg.c','sg.v','nrg','1.0'];
+const INPUT_LABELS = ['fd.s','fd.c','fd.d','cr.s','cr.c','cr.d','cr.z','sg.s','sg.c','sg.v','nrg','1.0','kin','m.0','m.1','m.2','m.3'];
 const OUTPUT_LABELS = ['turn','spd','sig'];
 
 // ================================================================
@@ -287,6 +288,7 @@ class Brain {
     this.lastInput  = new Float32Array(ni);
     this.lastHidden = new Float32Array(nh);
     this.lastOutput = new Float32Array(no);
+    this.memory = new Float32Array(CFG.BRAIN_RECURRENT);
   }
 
   randomize() {
@@ -295,14 +297,19 @@ class Brain {
     return this;
   }
 
-  forward(inp) {
-    this.lastInput.set(inp);
+  forward(sensory) {
+    // Build full input: sensory inputs + recurrent memory
+    const full = this.lastInput;
+    for (let i = 0; i < sensory.length; i++) full[i] = sensory[i];
+    for (let i = 0; i < CFG.BRAIN_RECURRENT; i++) full[sensory.length + i] = this.memory[i];
     const h = this.lastHidden;
     for (let j = 0; j < this.nh; j++) {
       let s = this.bh[j];
-      for (let i = 0; i < this.ni; i++) s += inp[i] * this.wih[i * this.nh + j];
+      for (let i = 0; i < this.ni; i++) s += full[i] * this.wih[i * this.nh + j];
       h[j] = Math.tanh(s);
     }
+    // Feed first hidden neurons back as memory for next tick
+    for (let i = 0; i < CFG.BRAIN_RECURRENT; i++) this.memory[i] = h[i];
     const o = this.lastOutput;
     for (let k = 0; k < this.no; k++) {
       let s = this.bo[k];
@@ -316,6 +323,7 @@ class Brain {
     const b = new Brain(this.ni, this.nh, this.no);
     b.wih.set(this.wih); b.bh.set(this.bh);
     b.who.set(this.who); b.bo.set(this.bo);
+    b.memory.fill(0); // clean slate - memory not inherited
     return b;
   }
 
@@ -391,7 +399,11 @@ class Hotspot {
 //  FOOD
 // ================================================================
 class Food {
-  constructor(x, y) { this.pos = new Vec2(x, y); this.alive = true; this.pulse = Math.random() * 6.28; }
+  constructor(x, y, hue, energy) {
+    this.pos = new Vec2(x, y); this.alive = true; this.pulse = Math.random() * 6.28;
+    this.hue = hue !== undefined ? hue : null;
+    this.energy = energy || CFG.FOOD_ENERGY;
+  }
 }
 
 // ================================================================
@@ -425,7 +437,8 @@ class Creature {
 
   perceive(foodGrid, creatureGrid) {
     const vr = CFG.VISION_RANGE;
-    const inp = new Float32Array(CFG.BRAIN_INPUTS);
+    const nSensory = CFG.BRAIN_INPUTS - CFG.BRAIN_RECURRENT;
+    const inp = new Float32Array(nSensory);
     this._nfPos = null;
     this._ncPos = null;
 
@@ -442,7 +455,7 @@ class Creature {
     } else { inp[2] = 1; }
 
     // --- Nearest creature ---
-    let bcDist = Infinity, bcAngle = 0, bcRelSize = 1;
+    let bcDist = Infinity, bcAngle = 0, bcRelSize = 1, bcHue = 0;
     const nc = creatureGrid.query(this.pos.x, this.pos.y, vr);
     for (let i = 0; i < nc.length; i++) {
       if (nc[i].id === this.id) continue;
@@ -450,12 +463,16 @@ class Creature {
       if (d < bcDist) {
         bcDist = d; bcAngle = Math.atan2(nc[i].pos.y - this.pos.y, nc[i].pos.x - this.pos.x);
         bcRelSize = nc[i].radius / this.radius; this._ncPos = nc[i].pos;
+        bcHue = nc[i].genes.hue;
       }
     }
     if (bcDist < Infinity) {
       const ra = wrapAngle(bcAngle - this.heading);
       inp[3] = Math.sin(ra); inp[4] = Math.cos(ra); inp[5] = clamp(bcDist / vr, 0, 1);
       inp[6] = clamp(bcRelSize - 1, -1, 1);
+      // Kin recognition: hue similarity (+1 = same hue, -1 = opposite)
+      const hueDiff = Math.min(Math.abs(this.genes.hue - bcHue), 360 - Math.abs(this.genes.hue - bcHue));
+      inp[12] = 1 - 2 * (hueDiff / 180);
     } else { inp[5] = 1; }
 
     // --- Nearest signaling creature ---
@@ -704,7 +721,7 @@ class World {
         if (!f.alive) continue;
         if (c.pos.dist(f.pos) < c.radius + CFG.FOOD_RADIUS) {
           f.alive = false;
-          c.energy = Math.min(c.energy + CFG.FOOD_ENERGY, CFG.ENERGY_MAX);
+          c.energy = Math.min(c.energy + f.energy, CFG.ENERGY_MAX);
           this.spawnP(f.pos.x, f.pos.y, 140, 4, 1.5, 20, 1.5);
           audio.eatClick();
         }
@@ -737,6 +754,9 @@ class World {
       // Death
       if (c.energy <= 0) {
         c.alive = false; this.deaths++;
+        // Drop corpse food colored by creature's hue
+        if (this.food.length < CFG.MAX_FOOD + 50)
+          this.food.push(new Food(c.pos.x, c.pos.y, c.genes.hue, c.genes.size * 15));
         this.spawnP(c.pos.x, c.pos.y, c.genes.hue, 10, 1.5, 38, 1.5);
         audio.deathThud();
       }
@@ -863,13 +883,22 @@ class Renderer {
       const f = world.food[i];
       f.pulse += 0.05;
       const glow = 0.5 + Math.sin(f.pulse) * 0.2;
+      const isCorpse = f.hue !== null;
       const grad = ctx.createRadialGradient(f.pos.x, f.pos.y, 0, f.pos.x, f.pos.y, 7);
-      grad.addColorStop(0, `rgba(100, 230, 160, ${0.55 * glow})`);
-      grad.addColorStop(0.35, `rgba(80, 200, 140, ${0.18 * glow})`);
-      grad.addColorStop(1, 'rgba(60, 180, 120, 0)');
+      if (isCorpse) {
+        grad.addColorStop(0, `hsla(${f.hue}, 55%, 45%, ${0.55 * glow})`);
+        grad.addColorStop(0.35, `hsla(${f.hue}, 45%, 35%, ${0.18 * glow})`);
+        grad.addColorStop(1, `hsla(${f.hue}, 35%, 25%, 0)`);
+      } else {
+        grad.addColorStop(0, `rgba(100, 230, 160, ${0.55 * glow})`);
+        grad.addColorStop(0.35, `rgba(80, 200, 140, ${0.18 * glow})`);
+        grad.addColorStop(1, 'rgba(60, 180, 120, 0)');
+      }
       ctx.fillStyle = grad;
       ctx.beginPath(); ctx.arc(f.pos.x, f.pos.y, 7, 0, 6.283); ctx.fill();
-      ctx.fillStyle = `rgba(150, 255, 200, ${0.75 * glow})`;
+      ctx.fillStyle = isCorpse
+        ? `hsla(${f.hue}, 65%, 55%, ${0.75 * glow})`
+        : `rgba(150, 255, 200, ${0.75 * glow})`;
       ctx.beginPath(); ctx.arc(f.pos.x, f.pos.y, CFG.FOOD_RADIUS, 0, 6.283); ctx.fill();
     }
 
@@ -1063,28 +1092,35 @@ function renderBrain(canvas, brain) {
 
   // Draw nodes
   const nr = 4;
-  function drawNode(n) {
+  const memStart = ni - CFG.BRAIN_RECURRENT;
+  function drawNode(n, isMemory) {
     const av = Math.abs(n.v);
     ctx.fillStyle = 'rgba(18, 18, 40, 0.85)';
     ctx.beginPath(); ctx.arc(n.x, n.y, nr, 0, 6.283); ctx.fill();
-    ctx.fillStyle = n.v >= 0
-      ? `rgba(70, 150, 255, ${av * 0.85})`
-      : `rgba(255, 80, 100, ${av * 0.85})`;
+    if (isMemory) {
+      ctx.fillStyle = `rgba(220, 160, 60, ${Math.max(av, 0.15) * 0.85})`;
+    } else {
+      ctx.fillStyle = n.v >= 0
+        ? `rgba(70, 150, 255, ${av * 0.85})`
+        : `rgba(255, 80, 100, ${av * 0.85})`;
+    }
     ctx.beginPath(); ctx.arc(n.x, n.y, nr * 0.75, 0, 6.283); ctx.fill();
-    ctx.strokeStyle = 'rgba(90, 90, 140, 0.35)';
+    ctx.strokeStyle = isMemory ? 'rgba(180, 140, 50, 0.4)' : 'rgba(90, 90, 140, 0.35)';
     ctx.lineWidth = 0.5;
     ctx.beginPath(); ctx.arc(n.x, n.y, nr, 0, 6.283); ctx.stroke();
   }
 
   for (let l = 0; l < 3; l++)
-    for (let i = 0; i < nodes[l].length; i++) drawNode(nodes[l][i]);
+    for (let i = 0; i < nodes[l].length; i++)
+      drawNode(nodes[l][i], l === 0 && i >= memStart);
 
   // Labels
   ctx.font = '7.5px -apple-system, sans-serif';
-  ctx.fillStyle = 'rgba(100, 100, 155, 0.55)';
   ctx.textAlign = 'right';
-  for (let i = 0; i < ni; i++)
+  for (let i = 0; i < ni; i++) {
+    ctx.fillStyle = i >= memStart ? 'rgba(220, 160, 60, 0.6)' : 'rgba(100, 100, 155, 0.55)';
     ctx.fillText(INPUT_LABELS[i], nodes[0][i].x - nr - 3, nodes[0][i].y + 2.5);
+  }
 
   ctx.textAlign = 'left';
   for (let i = 0; i < no; i++)

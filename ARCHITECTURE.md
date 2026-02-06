@@ -27,30 +27,32 @@ emergence.html (~ 1230 lines)
 |   +-- #pause-label         201
 |   +-- canvases             203-204
 |
-+-- <script>                 lines 206-1230
-    +-- CFG (config)         210-252
-    +-- INPUT_LABELS         254-255
-    +-- Vec2 + utilities     260-275
-    +-- Brain                280-326
-    +-- SpatialGrid          331-357
-    +-- Particle             362-370
-    +-- Hotspot              375-388
-    +-- Food                 393-395
-    +-- Creature             400-520
-    +-- AudioEngine          525-616
-    +-- World                621-794
-    +-- Renderer             799-1012
-    +-- renderBrain()        1017-1094
-    +-- Main IIFE            1099-1230
++-- <script>                 lines 206-1250
+    +-- CFG (config)         210-253
+    +-- INPUT_LABELS         255-256
+    +-- Vec2 + utilities     260-276
+    +-- Brain                281-334
+    +-- SpatialGrid          339-365
+    +-- Particle             370-378
+    +-- Hotspot              383-396
+    +-- Food                 401-407
+    +-- Creature             412-530
+    +-- AudioEngine          535-626
+    +-- World                631-810
+    +-- Renderer             815-1030
+    +-- renderBrain()        1035-1115
+    +-- Main IIFE            1120-1250
 ```
 
 ## Key Classes
 
-### Brain (280-326)
-Feedforward neural network. `forward(inp)` computes hidden+output activations
-and stores them in `lastInput`, `lastHidden`, `lastOutput` for the inspector.
-- Architecture: 12 inputs, 12 hidden (tanh), 3 outputs (tanh)
+### Brain (280-334)
+Recurrent neural network. `forward(sensory)` appends memory to sensory inputs,
+computes hidden+output activations, then feeds hidden[0..3] back as memory.
+Stores `lastInput`, `lastHidden`, `lastOutput` for the inspector.
+- Architecture: 17 inputs (13 sensory + 4 recurrent), 12 hidden (tanh), 3 outputs (tanh)
 - Weights: `wih` (input-hidden), `who` (hidden-output), `bh`, `bo` (biases)
+- `memory`: Float32Array(4) - recurrent state, zeroed in cloned children
 - `clone()` + `mutate(rate, amount)` for reproduction
 
 ### Creature (400-520)
@@ -63,7 +65,7 @@ The main entity. Key methods:
   deducts metabolism.
 - `reproduce()` [505-519]: Creates child with mutated genes and brain.
 
-**Brain inputs (12):**
+**Brain inputs (17 = 13 sensory + 4 recurrent):**
 | Index | Name   | Description                              |
 |-------|--------|------------------------------------------|
 | 0     | fd.s   | sin(relative angle to nearest food)      |
@@ -78,6 +80,11 @@ The main entity. Key methods:
 | 9     | sg.v   | signal strength of nearest signaler      |
 | 10    | nrg    | own energy (0-1)                         |
 | 11    | 1.0    | bias                                     |
+| 12    | kin    | hue similarity to nearest creature (-1,1)|
+| 13    | m.0    | recurrent memory 0 (from hidden[0])      |
+| 14    | m.1    | recurrent memory 1 (from hidden[1])      |
+| 15    | m.2    | recurrent memory 2 (from hidden[2])      |
+| 16    | m.3    | recurrent memory 3 (from hidden[3])      |
 
 **Brain outputs (3):**
 | Index | Name   | Description                       |
