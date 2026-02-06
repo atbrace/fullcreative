@@ -194,7 +194,7 @@ LFO. Events: `birthPing()` (pentatonic sine), `eatClick()` (high sine),
    |   +-- Check death (energy <= 0)
    +-- Add newborns, remove dead
    +-- Update particles
-   +-- Population floor (reseed if < 10)
+   +-- Population floor (reseed if < 15: 50% survivor offspring, 50% random)
    +-- Record population history
 
 2. Renderer.render()
