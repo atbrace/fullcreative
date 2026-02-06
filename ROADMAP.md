@@ -20,11 +20,12 @@ all from nothing but neural network mutation and survival pressure.
 ## Current State (v2)
 
 ### What's Built
-- 23-12-5 recurrent neural network brains (19 sensory + 4 memory inputs,
+- 29-12-5 recurrent neural network brains (25 sensory + 4 memory inputs,
   12 hidden, 5 outputs)
 - Perception: nearest food (direction, distance), nearest creature (direction,
   distance, relative size, kin similarity), nearest signaler per channel
-  (3 channels x direction + strength), own energy, bias
+  (3 channels x direction + strength), own energy, bias, nearest obstacle
+  (direction, distance), pheromone gradient (direction, intensity)
 - Outputs: turn rate, speed, 3 signal channel strengths
 - 4 recurrent memory neurons (hidden[0..3] fed back as input)
 - Genetic traits: hue (color lineage), body size, speed multiplier
@@ -34,6 +35,10 @@ all from nothing but neural network mutation and survival pressure.
 - Asexual reproduction with brain mutation and gene drift
 - Generative ambient audio (drone + birth/death/eat/predation sounds)
 - Day/night cycle affecting food spawn rate and visual atmosphere
+- Terrain obstacles (rock formations with collision and brain perception)
+- Current zones (drift forces with quadratic falloff)
+- Seasonal cycles (food abundance modulation over 14400-tick periods)
+- Pheromone grid (chemical trails that persist, diffuse, and decay)
 - Creature inspector with real-time neural network visualization
 - Population graph, species count, stats overlay
 - Speed controls (1x/2x/4x)
@@ -46,14 +51,13 @@ all from nothing but neural network mutation and survival pressure.
 - The neural network inspector is satisfying to watch
 - Audio adds meaningful atmosphere
 - Food hotspots create natural territories
+- Environmental richness (obstacles, currents, seasons) creates varied selection pressure
+- Pheromone trails create landscape-scale chemical memory
 
 ### What Needs Improvement
 - Creatures don't develop complex behaviors beyond basic foraging
 - 3 signal channels exist but creatures haven't evolved meaningful use yet
-- Creature memory exists (4 recurrent neurons) but hasn't been observed producing
-  complex temporal behavior yet - needs more evolution time
-- Population dynamics can be monotonous (steady state or boom-bust with no variation)
-- No environmental structure beyond hotspots - world is flat and featureless
+- Pheromone inputs exist but evolved pheromone-following behavior not yet observed
 - Species "speciation" is only by hue bucket, not behavioral divergence
 
 ---
@@ -100,7 +104,9 @@ interesting navigation, territory, or migration strategies.
   faster in winter (resource instability). Seasonal color temperature shift. Season
   indicator in stats panel.
 
-**Remaining:** See GitHub Issues labeled `phase-2`.
+**Phase 2 complete.** Remaining items (#6 Toxic zones, #7 Food chain depth)
+stashed as ideas - the environment is rich enough. Obstacles, currents, and
+seasons create sufficient navigation pressure.
 
 ### Phase 3: Social Dynamics
 *Enable the emergence of cooperation, competition, and culture.*
@@ -111,6 +117,12 @@ social relationships) and Phase 2 (creatures need territory to compete over).
 **Completed:**
 - Corpse food (2026-02-06): Dead creatures drop food at their position
   colored by their hue. Only starvation deaths drop corpses.
+- Pheromone system (2026-02-06): Creatures deposit chemical trails that persist,
+  diffuse, and decay. Grid-based system (~20px cells, double-buffered diffusion).
+  3 new brain inputs (ph.s, ph.c, ph.v) for gradient direction and local
+  intensity. Brain grew from 26-12-5 to 29-12-5 (25 sensory + 4 recurrent).
+  Obstacle masking prevents pheromone diffusion through rocks. Rendered as warm
+  amber glow overlay. Population floor bumped to 18/33 for larger brain.
 
 **Remaining:** See GitHub Issues labeled `phase-3`.
 
@@ -300,3 +312,41 @@ steadily improves. An unexpected emergent dynamic: corpse food accumulates durin
 winter (more deaths, fewer consumers), so food count climbs from 180 to 230.
 Surviving creatures benefit from abundant winter corpse food heading into spring.
 Winter avg pop 21.4 vs summer avg pop 26.5 - a 24% seasonal difference.
+
+### Session 8 - 2026-02-06
+**Built:** Pheromone system (#8) - first Phase 3 feature. Closed Phase 2 by
+stashing remaining items (#6, #7) as ideas.
+
+1. PheromoneGrid class: Low-resolution grid (~20px cells, ~2500 cells for a
+   1280x800 world). Double-buffered Float32Array for diffusion. Each tick,
+   every creature deposits a fixed amount (0.25) at its position. Every 4 ticks,
+   the grid diffuses (4% spread to 4 neighbors) and decays (1.2% per step).
+   Obstacle masking prevents pheromone from accumulating or diffusing through
+   rock formations - creates "pheromone shadows" behind obstacles.
+2. Creature perception: 3 new brain inputs at indices 22-24:
+   - ph.s: sin(relative angle to pheromone gradient)
+   - ph.c: cos(relative angle to pheromone gradient)
+   - ph.v: local pheromone intensity (0-1, clamped at PH_MAX_VIZ=8)
+   Brain grew from 26-12-5 to 29-12-5 (25 sensory + 4 recurrent).
+3. Rendering: Pheromone grid rendered as warm amber glow overlay via offscreen
+   canvas at grid resolution, scaled up with bilinear interpolation. Uses
+   'lighter' blend mode. Very subtle - visible but not distracting.
+4. Brain visualization: Pheromone input nodes colored warm amber, distinct from
+   memory (orange), obstacle (slate blue), and signal (channel-specific) nodes.
+5. Phase 2 cleanup: Stashed #6 (toxic zones) and #7 (food chain depth) as ideas.
+   The environment is rich enough with obstacles, currents, and seasons.
+
+**Tuning:** Population floor bumped 15/30 -> 18/33 to compensate for larger
+29-input brain search space. 3-trial benchmark confirmed: avg max gen jumped
+from 15.3 (MIN_POP=15) to 28.0 (MIN_POP=18), avg births from 125 to 556.
+Pheromone coverage stabilizes at ~77% of grid cells. Max pheromone values reach
+15-26 in high-traffic areas.
+
+**Learned:** The pattern continues: each brain size increase needs a proportional
+population floor adjustment. 23 inputs needed floor 10, 26 needed floor 15, 29
+needs floor 18. The relationship is roughly 5-6 extra floor per 3 inputs. This
+is because random brains with more inputs have lower probability of accidentally
+finding food - more weights initialized randomly means the useful signal-to-noise
+ratio in the initial population drops. Smart reseeding (survivor offspring)
+remains the key mechanism that makes this tractable at all. Two new ideas logged:
+species-scented pheromones (#42) and evolvable deposition rate (#43).

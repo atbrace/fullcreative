@@ -237,7 +237,7 @@ const CFG = {
   REPRODUCE_GIVE: 0.38,
   BODY_SEGMENTS: 5,
 
-  BRAIN_INPUTS: 26,
+  BRAIN_INPUTS: 29,
   BRAIN_HIDDEN: 12,
   BRAIN_OUTPUTS: 5,
   BRAIN_RECURRENT: 4,
@@ -270,13 +270,21 @@ const CFG = {
   CURRENT_RADIUS_MAX: 450,
   CURRENT_STRENGTH: 0.08,
 
+  // Pheromone grid
+  PH_CELL: 20,
+  PH_DEPOSIT: 0.25,
+  PH_DECAY: 0.988,
+  PH_DIFFUSE: 0.04,
+  PH_DIFFUSE_INTERVAL: 4,
+  PH_MAX_VIZ: 8,
+
   // Seasonal cycles
   SEASON_PERIOD: 14400,
 
   BG: [8, 8, 26],
 };
 
-const INPUT_LABELS = ['fd.s','fd.c','fd.d','cr.s','cr.c','cr.d','cr.z','s0.s','s0.c','s0.v','s1.s','s1.c','s1.v','s2.s','s2.c','s2.v','nrg','1.0','kin','ob.s','ob.c','ob.d','m.0','m.1','m.2','m.3'];
+const INPUT_LABELS = ['fd.s','fd.c','fd.d','cr.s','cr.c','cr.d','cr.z','s0.s','s0.c','s0.v','s1.s','s1.c','s1.v','s2.s','s2.c','s2.v','nrg','1.0','kin','ob.s','ob.c','ob.d','ph.s','ph.c','ph.v','m.0','m.1','m.2','m.3'];
 const OUTPUT_LABELS = ['turn','spd','sg0','sg1','sg2'];
 const SIGNAL_HUES = [30, 200, 320]; // gold, blue, magenta - universal per channel
 
@@ -464,6 +472,106 @@ class CurrentZone {
 }
 
 // ================================================================
+//  PHEROMONE GRID
+// ================================================================
+class PheromoneGrid {
+  constructor(w, h) {
+    this.cellSize = CFG.PH_CELL;
+    this.cols = Math.ceil(w / this.cellSize);
+    this.rows = Math.ceil(h / this.cellSize);
+    const n = this.cols * this.rows;
+    this.data = new Float32Array(n);
+    this.buf = new Float32Array(n);
+    this.mask = new Uint8Array(n); // 1 = blocked (obstacle)
+    // Offscreen canvas for rendering
+    this.canvas = document.createElement('canvas');
+    this.canvas.width = this.cols;
+    this.canvas.height = this.rows;
+    this.imgCtx = this.canvas.getContext('2d');
+    this.imgData = this.imgCtx.createImageData(this.cols, this.rows);
+  }
+
+  buildMask(obstacles) {
+    this.mask.fill(0);
+    const cs = this.cellSize;
+    for (let r = 0; r < this.rows; r++) {
+      const cy = (r + 0.5) * cs;
+      for (let c = 0; c < this.cols; c++) {
+        const cx = (c + 0.5) * cs;
+        for (let i = 0; i < obstacles.length; i++) {
+          const ob = obstacles[i];
+          const dx = cx - ob.pos.x, dy = cy - ob.pos.y;
+          if (dx * dx + dy * dy < ob.radius * ob.radius) {
+            this.mask[r * this.cols + c] = 1;
+            break;
+          }
+        }
+      }
+    }
+  }
+
+  deposit(x, y, amount) {
+    const c = Math.floor(x / this.cellSize);
+    const r = Math.floor(y / this.cellSize);
+    if (c < 0 || c >= this.cols || r < 0 || r >= this.rows) return;
+    const idx = r * this.cols + c;
+    if (!this.mask[idx]) this.data[idx] += amount;
+  }
+
+  diffuseAndDecay() {
+    const cols = this.cols, rows = this.rows;
+    const d = CFG.PH_DIFFUSE;
+    const keep = 1 - d;
+    const spread = d * 0.25; // split among 4 neighbors
+    const decay = CFG.PH_DECAY;
+    const src = this.data, dst = this.buf, mask = this.mask;
+
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        const idx = r * cols + c;
+        if (mask[idx]) { dst[idx] = 0; continue; }
+        let val = src[idx] * keep;
+        // Add diffusion from neighbors
+        if (r > 0 && !mask[(r - 1) * cols + c]) val += src[(r - 1) * cols + c] * spread;
+        if (r < rows - 1 && !mask[(r + 1) * cols + c]) val += src[(r + 1) * cols + c] * spread;
+        if (c > 0 && !mask[r * cols + c - 1]) val += src[r * cols + c - 1] * spread;
+        if (c < cols - 1 && !mask[r * cols + c + 1]) val += src[r * cols + c + 1] * spread;
+        dst[idx] = val * decay;
+      }
+    }
+
+    // Swap buffers
+    this.data = dst;
+    this.buf = src;
+  }
+
+  gradient(x, y) {
+    const c = Math.floor(x / this.cellSize);
+    const r = Math.floor(y / this.cellSize);
+    if (c < 1 || c >= this.cols - 1 || r < 1 || r >= this.rows - 1)
+      return { dx: 0, dy: 0, val: 0 };
+    const data = this.data, cols = this.cols;
+    const idx = r * cols + c;
+    const gx = (data[idx + 1] - data[idx - 1]) * 0.5;
+    const gy = (data[idx + cols] - data[idx - cols]) * 0.5;
+    return { dx: gx, dy: gy, val: data[idx] };
+  }
+
+  resize(w, h) {
+    this.cols = Math.ceil(w / this.cellSize);
+    this.rows = Math.ceil(h / this.cellSize);
+    const n = this.cols * this.rows;
+    this.data = new Float32Array(n);
+    this.buf = new Float32Array(n);
+    this.mask = new Uint8Array(n);
+    this.canvas.width = this.cols;
+    this.canvas.height = this.rows;
+    this.imgCtx = this.canvas.getContext('2d');
+    this.imgData = this.imgCtx.createImageData(this.cols, this.rows);
+  }
+}
+
+// ================================================================
 //  CREATURE
 // ================================================================
 let cidCounter = 0;
@@ -492,7 +600,7 @@ class Creature {
     return new Creature(x, y, genes, new Brain(CFG.BRAIN_INPUTS, CFG.BRAIN_HIDDEN, CFG.BRAIN_OUTPUTS).randomize(), 0);
   }
 
-  perceive(foodGrid, creatureGrid, obstacles) {
+  perceive(foodGrid, creatureGrid, obstacles, phGrid) {
     const vr = CFG.VISION_RANGE;
     const nSensory = CFG.BRAIN_INPUTS - CFG.BRAIN_RECURRENT;
     const inp = new Float32Array(nSensory);
@@ -569,6 +677,16 @@ class Creature {
       const ra = wrapAngle(boAngle - this.heading);
       inp[19] = Math.sin(ra); inp[20] = Math.cos(ra); inp[21] = clamp(boDist / vr, 0, 1);
     } else { inp[21] = 1; }
+
+    // --- Pheromone gradient ---
+    const phg = phGrid.gradient(this.pos.x, this.pos.y);
+    const phMag = Math.sqrt(phg.dx * phg.dx + phg.dy * phg.dy);
+    if (phMag > 0.001) {
+      const phAngle = Math.atan2(phg.dy, phg.dx);
+      const ra = wrapAngle(phAngle - this.heading);
+      inp[22] = Math.sin(ra); inp[23] = Math.cos(ra);
+    }
+    inp[24] = clamp(phg.val / CFG.PH_MAX_VIZ, 0, 1);
 
     inp[16] = clamp(this.energy / CFG.ENERGY_MAX, 0, 1);
     inp[17] = 1; // bias
@@ -774,6 +892,7 @@ class World {
     this.creatures = []; this.food = []; this.particles = [];
     this.foodGrid = new SpatialGrid(w, h, CFG.GRID_CELL);
     this.creatureGrid = new SpatialGrid(w, h, CFG.GRID_CELL);
+    this.phGrid = new PheromoneGrid(w, h);
     this.hotspots = [];
     this.obstacles = [];
     this.currents = [];
@@ -787,6 +906,7 @@ class World {
     for (let i = 0; i < CFG.NUM_HOTSPOTS; i++)
       this.hotspots.push(new Hotspot(rand(100, this.w - 100), rand(100, this.h - 100)));
     this._generateObstacles();
+    this.phGrid.buildMask(this.obstacles);
     this._generateCurrents();
     for (let i = 0; i < CFG.INITIAL_CREATURES; i++) {
       let x, y, ok;
@@ -913,6 +1033,9 @@ class World {
     if (this.tick % 5 === 0)
       for (let i = 0; i < this.currents.length; i++) this.currents[i].drift(this.w, this.h);
 
+    // Pheromone diffusion
+    if (this.tick % CFG.PH_DIFFUSE_INTERVAL === 0) this.phGrid.diffuseAndDecay();
+
     // Spawn food (modulated by day + season)
     if (this.food.length < CFG.MAX_FOOD && Math.random() < CFG.FOOD_SPAWN_RATE * dayMul * seasonMul)
       this.food.push(this._spawnFood());
@@ -927,9 +1050,12 @@ class World {
       const c = this.creatures[i];
       if (!c.alive) continue;
 
-      const inp = c.perceive(this.foodGrid, this.creatureGrid, this.obstacles);
+      const inp = c.perceive(this.foodGrid, this.creatureGrid, this.obstacles, this.phGrid);
       c.think(inp);
       c.move(this.w, this.h, this.obstacles, this.currents);
+
+      // Deposit pheromone at current position
+      this.phGrid.deposit(c.pos.x, c.pos.y, CFG.PH_DEPOSIT);
 
       // Eat food
       const nf = this.foodGrid.query(c.pos.x, c.pos.y, c.radius + CFG.EAT_RANGE);
@@ -990,7 +1116,7 @@ class World {
     if (this.selected && !this.selected.alive) this.selected = null;
 
     // Population floor - prevent extinction spirals
-    const MIN_POP = 15;
+    const MIN_POP = 18;
     if (this.creatures.length < MIN_POP) {
       const needed = MIN_POP + 15 - this.creatures.length;
       // Sort survivors by energy - best adapted get to seed offspring
@@ -1032,6 +1158,8 @@ class World {
     this.w = w; this.h = h;
     this.foodGrid = new SpatialGrid(w, h, CFG.GRID_CELL);
     this.creatureGrid = new SpatialGrid(w, h, CFG.GRID_CELL);
+    this.phGrid.resize(w, h);
+    this.phGrid.buildMask(this.obstacles);
   }
 
   countSpecies() {
@@ -1158,6 +1286,9 @@ class Renderer {
         ctx.stroke();
       }
     }
+
+    // Pheromone grid overlay
+    this._renderPheromones(ctx, world.phGrid);
 
     // Obstacles - dark body (source-over)
     ctx.globalCompositeOperation = 'source-over';
@@ -1311,6 +1442,32 @@ class Renderer {
     this.drawGraph(ctx, world, W, H);
   }
 
+  _renderPheromones(ctx, phGrid) {
+    const data = phGrid.data, cols = phGrid.cols, rows = phGrid.rows;
+    const pixels = phGrid.imgData.data;
+    let hasAny = false;
+    for (let i = 0, n = cols * rows; i < n; i++) {
+      const v = data[i];
+      const pi = i * 4;
+      if (v > 0.05) {
+        hasAny = true;
+        const intensity = Math.min(v / CFG.PH_MAX_VIZ, 1);
+        const a = intensity * 0.45;
+        pixels[pi] = 140;     // R - warm amber
+        pixels[pi + 1] = 120; // G
+        pixels[pi + 2] = 60;  // B
+        pixels[pi + 3] = Math.round(a * 255);
+      } else {
+        pixels[pi] = 0; pixels[pi + 1] = 0; pixels[pi + 2] = 0; pixels[pi + 3] = 0;
+      }
+    }
+    if (!hasAny) return;
+    phGrid.imgCtx.putImageData(phGrid.imgData, 0, 0);
+    ctx.imageSmoothingEnabled = true;
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.drawImage(phGrid.canvas, 0, 0, cols, rows, 0, 0, this.w, this.h);
+  }
+
   drawGraph(ctx, world, W, H) {
     const hist = world.popHistory;
     if (hist.length < 2) return;
@@ -1401,6 +1558,7 @@ function renderBrain(canvas, brain) {
   const memStart = ni - CFG.BRAIN_RECURRENT;
   const sigInputStart = 7, sigInputEnd = 7 + CFG.SIGNAL_CHANNELS * 3; // signal input range
   const obsInputStart = 19, obsInputEnd = 22; // obstacle input range
+  const phInputStart = 22, phInputEnd = 25; // pheromone input range
   const sigOutputStart = 2; // signal output range starts at index 2
 
   function signalChannelColor(ch, alpha) {
@@ -1410,6 +1568,7 @@ function renderBrain(canvas, brain) {
 
   function getInputColor(i, av) {
     if (i >= memStart) return `rgba(220, 160, 60, ${Math.max(av, 0.15) * 0.85})`;
+    if (i >= phInputStart && i < phInputEnd) return `rgba(160, 140, 70, ${Math.max(av, 0.15) * 0.85})`;
     if (i >= obsInputStart && i < obsInputEnd) return `rgba(120, 140, 180, ${Math.max(av, 0.15) * 0.85})`;
     if (i >= sigInputStart && i < sigInputEnd) {
       const ch = Math.floor((i - sigInputStart) / 3);
@@ -1429,6 +1588,7 @@ function renderBrain(canvas, brain) {
 
   function getStrokeColor(i, layer) {
     if (layer === 0 && i >= memStart) return 'rgba(180, 140, 50, 0.4)';
+    if (layer === 0 && i >= phInputStart && i < phInputEnd) return 'rgba(140, 120, 60, 0.4)';
     if (layer === 0 && i >= obsInputStart && i < obsInputEnd) return 'rgba(100, 120, 160, 0.4)';
     if (layer === 0 && i >= sigInputStart && i < sigInputEnd) {
       const ch = Math.floor((i - sigInputStart) / 3);
@@ -1461,6 +1621,7 @@ function renderBrain(canvas, brain) {
   ctx.textAlign = 'right';
   for (let i = 0; i < ni; i++) {
     if (i >= memStart) ctx.fillStyle = 'rgba(220, 160, 60, 0.6)';
+    else if (i >= phInputStart && i < phInputEnd) ctx.fillStyle = 'rgba(160, 140, 70, 0.6)';
     else if (i >= obsInputStart && i < obsInputEnd) ctx.fillStyle = 'rgba(120, 140, 180, 0.6)';
     else if (i >= sigInputStart && i < sigInputEnd) {
       const ch = Math.floor((i - sigInputStart) / 3);
