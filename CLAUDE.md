@@ -59,6 +59,11 @@ exploration. If the current architecture, technical constraints, or frameworks
 become a constraint on the vision, rearchitecture is explicitly on the table.
 Nothing is sacred except the quality of the result.
 
+The user is open to providing additional tooling on request - subagents, swarms,
+custom agents, MCP plugins, etc. The only boundaries are session token limits
+and the security/stability of the host machine. If a tool would accelerate the
+work, ask for it.
+
 ## Technical Constraints
 *These are the current constraints. They can be revisited if the vision demands it.*
 - Single HTML file, zero external dependencies
