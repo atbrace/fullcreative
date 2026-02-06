@@ -64,18 +64,13 @@ The current brain is memoryless - creatures can't learn temporal patterns, can't
 remember where food was, can't develop sequential behaviors. This is the single
 biggest bottleneck to emergent complexity.
 
-- [x] **Recurrent connections** (2026-02-06): 4 recurrent neurons feed hidden[0..3]
-  back as input. Brain is now 17-12-3 (13 sensory + 4 memory). Memory nodes shown
-  in orange in brain viz. Children start with zeroed memory.
-- [ ] **Multiple signal channels**: Instead of one signal output, give creatures
-  2-3 signal channels (different "frequencies"). Others can sense each channel
-  independently. This creates the substrate for differentiated communication -
-  one channel for food, another for danger, etc. Evolution decides the meaning.
-- [x] **Kin recognition input** (2026-02-06): Brain input at index 12 for hue
-  similarity to nearest creature (-1 = opposite, +1 = same). Circular hue math.
-- [ ] **Danger memory**: With recurrent connections, creatures could learn to
-  associate certain directions with recent predation events. Verify this emerges
-  naturally or consider adding a "was I recently attacked" input.
+**Completed:**
+- Recurrent connections (2026-02-06): 4 recurrent neurons feed hidden[0..3]
+  back as input. Brain is now 17-12-3 (13 sensory + 4 memory).
+- Kin recognition input (2026-02-06): Brain input at index 12 for hue
+  similarity to nearest creature (-1 = opposite, +1 = same).
+
+**Remaining:** See GitHub Issues labeled `phase-1`.
 
 ### Phase 2: Environmental Richness
 *Make the world worth navigating.*
@@ -83,21 +78,7 @@ biggest bottleneck to emergent complexity.
 A flat world with scattered food doesn't create enough selection pressure for
 interesting navigation, territory, or migration strategies.
 
-- [ ] **Terrain obstacles**: Circular or polygonal obstacles that creatures
-  bounce off. Creates chokepoints, sheltered areas, and line-of-sight barriers.
-  Obstacles should be few (5-8) and large enough to matter.
-- [ ] **Current zones**: Regions where creatures experience a constant drift
-  force. Creates "rivers" that creatures can ride or fight against. Energy-efficient
-  creatures might evolve to use currents for travel.
-- [ ] **Seasonal cycles**: Longer than day/night (5-10 minute period). Hotspot
-  strengths shift dramatically - some regions become barren while others bloom.
-  Creates migration pressure: creatures that stay in one place eventually starve,
-  creatures that move to new blooms survive.
-- [ ] **Toxic zones**: Small areas that drain energy. Creates "forbidden zones"
-  that separate populations, enabling geographic speciation (allopatric speciation).
-- [ ] **Food chain depth**: Introduce a second food type - "plants" that grow
-  slowly and "fruit" that appears in bursts. Different energy values create
-  foraging strategy diversity.
+**Remaining:** See GitHub Issues labeled `phase-2`.
 
 ### Phase 3: Social Dynamics
 *Enable the emergence of cooperation, competition, and culture.*
@@ -105,23 +86,11 @@ interesting navigation, territory, or migration strategies.
 This phase is only meaningful after Phase 1 (creatures need memory to have
 social relationships) and Phase 2 (creatures need territory to compete over).
 
-- [ ] **Pheromone system**: Creatures can deposit invisible chemical markers on a
-  grid. Markers diffuse and decay over time. Other creatures can sense local
-  pheromone concentration and gradient direction. This enables: trail following
-  to food, territory marking, alarm pheromones, nest-like gathering points.
-  Implementation: low-resolution grid (maybe 1/10th of screen resolution),
-  diffuse + decay each tick, creatures deposit based on a brain output.
-- [ ] **Energy sharing**: A brain output that, when activated near another
-  creature, transfers a small amount of energy to it. This creates the
-  substrate for altruism, parental care, or parasitism - evolution decides.
-- [ ] **Mate selection**: Instead of purely asexual reproduction, creatures
-  above the energy threshold must find a willing partner. Both parents contribute
-  brain weights (crossover + mutation). This creates sexual selection pressure
-  and accelerates evolution.
-- [x] **Corpse food** (2026-02-06): Dead creatures drop food at their position
-  colored by their hue (energy = size * 15). Food class extended with optional
-  hue/energy. Renderer shows corpse food in creature's color vs green for plants.
-  Only starvation deaths drop corpses (predation already transfers energy).
+**Completed:**
+- Corpse food (2026-02-06): Dead creatures drop food at their position
+  colored by their hue. Only starvation deaths drop corpses.
+
+**Remaining:** See GitHub Issues labeled `phase-3`.
 
 ### Phase 4: Spectator Intelligence
 *Make the simulation legible, narratable, and shareable.*
@@ -129,71 +98,24 @@ social relationships) and Phase 2 (creatures need territory to compete over).
 The simulation produces emergent behavior, but the viewer needs help recognizing
 and understanding it.
 
-- [ ] **Species auto-detection**: Cluster creatures by brain weight similarity
-  (not just hue). Use a simple distance metric on flattened weight vectors.
-  Species that are behaviorally distinct get distinct cluster IDs. Track species
-  populations over time.
-- [ ] **Species naming**: Auto-generate names for detected species using a
-  simple syllable combiner (e.g., "Vorathi", "Celundra"). Names persist as long
-  as the species exists. Display dominant species names on screen.
-- [ ] **Stacked species chart**: Replace the simple population graph with a
-  stacked area chart colored by species. Shows speciation events, extinctions,
-  and population dynamics at a glance.
-- [ ] **Event detection and log**: Detect notable events: mass extinction (>40%
-  pop drop in 10s), speciation (new cluster emerges), invasion (species moves
-  to new hotspot), predation chain (creature A eats B eats C in quick succession).
-  Show events as brief toasts at bottom of screen.
-- [ ] **Creature lineage view**: When a creature is selected, show its ancestry
-  chain (parent, grandparent, etc.) with generation numbers and trait drift.
-  Maybe a small family tree visualization.
-- [ ] **Time-lapse mode**: 16x-32x speed with rendering optimizations (skip
-  particle effects, reduce trail resolution) for watching long-term evolution
-  in minutes.
+**Remaining:** See GitHub Issues labeled `phase-4`.
 
 ### Phase 5: Deep Evolution
 *Let evolution reshape not just behavior but biology.*
 
-- [ ] **Evolvable brain size**: Brain hidden layer size becomes a gene (6-20
-  neurons). Larger brains cost more energy (metabolism scales with neuron count).
-  Creates a brain-size arms race with metabolic constraints.
-- [ ] **Evolvable sensory range**: Vision range becomes a gene. Larger vision =
-  higher metabolism. Creates specialists: myopic foragers vs far-sighted predators.
-- [ ] **Evolvable body plan**: Number of body segments, turning agility, and
-  maximum speed all become evolvable traits with metabolic trade-offs.
-- [ ] **Reproductive strategies**: Evolve clutch size (1-3 offspring) with energy
-  divided accordingly. Creates r-strategy (many cheap offspring) vs K-strategy
-  (few expensive offspring) specialization.
-- [ ] **Dormancy**: A brain output that puts the creature into a low-energy
-  "sleep" state (very low metabolism, no movement, no perception). Could evolve
-  as a starvation survival strategy.
+**Remaining:** See GitHub Issues labeled `phase-5`.
 
 ### Phase 6: The Long Dream (far future)
 *Aspirational features. May never be built. That's fine.*
 
-- [ ] Working memory buffer (creature can "remember" last N perceptions)
-- [ ] Imitation (creatures copy behaviors of nearby successful creatures)
-- [ ] Environmental modification (push food, create barriers from corpses)
-- [ ] Proto-language (signal patterns that carry semantic meaning)
-- [ ] Multi-world instances with migration between them
-- [ ] Procedural narrator that describes events in natural language
-- [ ] Save/load ecosystem state
-- [ ] Gallery mode: curate and share beautiful moments as screenshots/GIFs
+**Ideas:** See GitHub Issues labeled `phase-6`.
 
 ---
 
 ## Ideas Backlog
-*Unstructured ideas. Evaluate during PM review and promote to a phase if worthy.*
 
-- Background music that evolves with the ecosystem (pitch mapped to dominant species hue)
-- Heatmap overlay mode showing creature density, food density, or pheromone levels
-- Creature "thoughts" tooltip - show the brain's strongest input and what it's doing
-- Minimap in corner showing full world view when zoomed
-- Camera/zoom system for following individual creatures
-- "Genesis" mode where you manually place the first creatures and design the world
-- Performance: use OffscreenCanvas + Web Workers for simulation (render on main thread)
-- WebGL renderer as an optional upgrade path for 1000+ creatures
-- Population carrying capacity that self-regulates based on food supply math
-- Parasite creatures that are very small, attach to large creatures, drain energy slowly
+See GitHub Issues labeled `idea`. Evaluate during PM review and promote to
+roadmap if worthy: `gh issue edit <N> --add-label roadmap --remove-label idea`
 
 ---
 

@@ -6,24 +6,46 @@ Neural-network creatures evolve in real time - foraging, predation, signaling,
 and speciation all emerge from evolution alone. This is both a technical project
 and a piece of generative art.
 
+## Project Tracking
+
+- **Roadmap:** GitHub Issues with `roadmap` and `idea` labels are the single source of truth
+- **Quick access:** Use `/roadmap` slash command to view current status
+- **Vision doc:** `ROADMAP.md` has phase descriptions, design rationale, and session log - but NOT tracking
+- **Automation:** Stop hook prompts for roadmap hygiene after implementation sessions
+- **Labels:** `roadmap`, `idea`, `phase-1` through `phase-6`, `P1-high`, `P2-medium`
+
+### Quick Actions
+- `gh issue create --label roadmap --title "..."` - add a roadmap item
+- `gh issue close <number>` - mark done
+- `gh issue edit <number> --add-label idea --remove-label roadmap` - stash for later
+- `gh issue edit <number> --add-label roadmap --remove-label idea` - promote idea to roadmap
+
+### Session Hygiene
+
+When context is about to be compacted during a long session, update MEMORY.md before compaction:
+- Memory path: `~/.claude/projects/-Users-austinbrace-Developer-fullcreative/memory/MEMORY.md`
+- Record: what was accomplished, current task in progress, key decisions made
+- Keep it concise - replace stale info, don't append endlessly
+
 ## Product Manager Session Protocol
 
 **Every session on this project must begin with the PM review.**
 
-1. Read `ROADMAP.md` in full. Understand the vision, current phase, and recent history.
-2. Assess the current state: open the HTML file, check for any regressions, note what's working.
-3. The PM decides what to build this session (1-3 items). Selection criteria:
+1. Run `/roadmap` to see the current state of GitHub Issues.
+2. Read `ROADMAP.md` for vision context and recent session history.
+3. Assess the current state: open the HTML file, check for any regressions, note what's working.
+4. The PM decides what to build this session (1-3 items). Selection criteria:
    - What advances the current phase toward completion?
    - What creates the most emergent potential per line of code?
    - What is the user most likely to find rewarding to observe?
    - Prefer depth over breadth: finish a feature well rather than starting three.
-4. Build the chosen items. Test by opening in browser.
-5. After completing work, update `ROADMAP.md`:
-   - Mark completed items with date
-   - Move newly discovered ideas to the backlog
-   - Write a brief session log entry noting what was built and what was learned
-   - Adjust phase priorities if the work revealed new insights
-6. Commit with a clear message describing what changed.
+5. Build the chosen items. Test by opening in browser.
+6. After completing work:
+   - Close completed GitHub Issues (`gh issue close <number>`)
+   - Create new issues for ideas discovered during implementation
+   - Write a session log entry in `ROADMAP.md`
+   - Update `MEMORY.md` with current focus
+7. Commit with a clear message describing what changed.
 
 The PM is opinionated. It has a clear aesthetic and technical vision and should
 not chase features that don't serve the core experience of watching complexity

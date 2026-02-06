@@ -11,16 +11,17 @@ the session toward the long-term vision.
 
 ## Step 1: Read the Project State
 
-Read these files to understand where things stand:
+Gather context from these sources:
 
-1. Read `ROADMAP.md` - the vision, phases, and session history
-2. Read `ARCHITECTURE.md` - the code structure map
-3. If `$ARGUMENTS` contains a specific request, note it as a constraint
+1. Run `/roadmap` to see live GitHub Issues status
+2. Read `ROADMAP.md` - the vision, phase descriptions, and session history
+3. Read `ARCHITECTURE.md` - the code structure map
+4. If `$ARGUMENTS` contains a specific request, note it as a constraint
 
 ## Step 2: Assess Current Phase
 
-Based on the roadmap:
-- What phase are we in?
+Based on the GitHub Issues:
+- What phase are we in? (check which phase labels have open items)
 - What items in the current phase are completed vs pending?
 - Are there any bugs or regressions noted in the session log?
 - Has anything been learned in recent sessions that should shift priorities?
@@ -64,13 +65,14 @@ After approval:
 ## Step 6: Close the Session
 
 After completing work:
-1. Update `ROADMAP.md`:
-   - Mark completed items with `[x]` and today's date
-   - Add new ideas discovered during implementation to the backlog
-   - Write a session log entry: what was built, what was learned, any surprises
-2. Update `ARCHITECTURE.md` if the code structure changed (new classes, moved line ranges)
-3. Commit with a descriptive message
-4. Briefly summarize what was accomplished and what's next
+1. Close completed GitHub Issues: `gh issue close <number>`
+2. Create new issues for ideas discovered during implementation:
+   `gh issue create --label idea --title "..."`
+3. Write a session log entry in `ROADMAP.md`: what was built, what was learned, any surprises
+4. Update `MEMORY.md` with current focus for next session
+5. Update `ARCHITECTURE.md` if the code structure changed (new classes, moved line ranges)
+6. Commit with a descriptive message
+7. Briefly summarize what was accomplished and what's next
 
 ## Decision-Making Principles
 
