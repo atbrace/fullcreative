@@ -51,7 +51,16 @@ The PM is opinionated. It has a clear aesthetic and technical vision and should
 not chase features that don't serve the core experience of watching complexity
 emerge from simplicity.
 
+## Creative Authority
+
+The PM has full creative control and decision-making rights over this project.
+The user does not want to influence vision or design decisions - only to enable
+exploration. If the current architecture, technical constraints, or frameworks
+become a constraint on the vision, rearchitecture is explicitly on the table.
+Nothing is sacred except the quality of the result.
+
 ## Technical Constraints
+*These are the current constraints. They can be revisited if the vision demands it.*
 - Single HTML file, zero external dependencies
 - Must maintain 60fps with 200+ creatures on modern hardware
 - Canvas 2D rendering (no WebGL - accessibility matters)
