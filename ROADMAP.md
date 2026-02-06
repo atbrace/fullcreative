@@ -69,6 +69,29 @@ biggest bottleneck to emergent complexity.
   brain becomes a 16-12-3 network (12 sensory + 4 recurrent inputs). The recurrent
   neurons are part of the hidden layer output that gets fed back. This is the
   simplest path to temporal behavior.
+
+  **Implementation spec:**
+  1. `CFG`: Change `BRAIN_INPUTS` to 16. Add `BRAIN_RECURRENT: 4`.
+  2. `Brain` class: Add `this.memory = new Float32Array(4)` in constructor.
+     Modify `forward(sensoryInput)` to:
+     - Build `fullInput[16]`: copy 12 sensory values, then append 4 memory values
+     - Compute hidden layer from 16 inputs (wih is now 16x12 = 192 weights)
+     - After computing hidden, copy `hidden[0..3]` into `this.memory` for next tick
+     - Store `fullInput` in `lastInput` (not just sensory) so brain viz shows memory
+     - Output computation unchanged (12 hidden -> 3 outputs)
+  3. `Brain.randomize()`: No change needed (arrays auto-size from ni*nh).
+  4. `Brain.clone()`: Reset `memory` to zeros in child (clean slate, not inherited).
+  5. `Creature.think()`: Pass 12-element sensory array to `brain.forward()`.
+     Brain internally prepends memory. No change to Creature code.
+  6. `INPUT_LABELS`: Append `['m.0','m.1','m.2','m.3']` (total 16 labels).
+  7. `renderBrain()`: Already reads `brain.ni` dynamically. Node layout will
+     auto-adjust for 16 inputs. Consider adding a visual separator or color
+     distinction for the 4 memory inputs (e.g., orange instead of default).
+  8. Performance: 16x12 = 192 vs 12x12 = 144 multiply-adds. +33%. Negligible.
+  9. **Validation**: After implementing, select a creature and watch the brain
+     viz. The 4 memory nodes (m.0-m.3) should show sustained activation that
+     persists across frames, unlike sensory inputs which flicker. If memory
+     nodes are always near zero, the mutation rate may need tuning.
 - [ ] **Multiple signal channels**: Instead of one signal output, give creatures
   2-3 signal channels (different "frequencies"). Others can sense each channel
   independently. This creates the substrate for differentiated communication -
@@ -125,6 +148,17 @@ social relationships) and Phase 2 (creatures need territory to compete over).
 - [ ] **Corpse food**: When creatures die, they leave behind a food item with
   energy proportional to their size. Creates scavenging as a viable strategy
   and adds ecological cycling.
+
+  **Implementation spec (quick win - can be done alongside other work):**
+  1. Create `Corpse` class (or reuse `Food` with a `type` field and higher energy).
+     Simplest: just spawn a Food at death position with energy = creature's size * 15.
+  2. In `World.update()`, death block (~line 738): after setting `c.alive = false`,
+     push a new Food at `c.pos` (if food count < MAX_FOOD + 50).
+  3. Visual: corpse food should look different from plant food. Use a warm hue
+     (match the dead creature's hue) instead of green. Modify Food class to accept
+     optional `hue` parameter. Renderer checks `food.hue` and uses it if set.
+  4. This is ~15 lines of code but creates scavenger niches, energy recycling,
+     and makes death sites visually meaningful (colored dots where creatures fell).
 
 ### Phase 4: Spectator Intelligence
 *Make the simulation legible, narratable, and shareable.*
