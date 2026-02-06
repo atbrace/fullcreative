@@ -108,7 +108,7 @@
   .insp-bar-fill { height: 100%; border-radius: 3px; transition: width 0.1s linear; }
   .insp-divider { height: 1px; background: rgba(55, 55, 90, 0.2); margin: 10px 0 8px; }
   .insp-brain-lbl { font-size: 0.58rem; letter-spacing: 0.1em; color: #3d3d58; margin-bottom: 6px; }
-  #brain-canvas { width: 248px; height: 170px; display: block; }
+  #brain-canvas { width: 248px; height: 220px; display: block; }
 
   /* --- Help --- */
   #help-panel {
@@ -187,7 +187,7 @@
   </div>
   <div class="insp-divider"></div>
   <div class="insp-brain-lbl">NEURAL NETWORK</div>
-  <canvas id="brain-canvas" width="496" height="400"></canvas>
+  <canvas id="brain-canvas" width="496" height="440"></canvas>
 </div>
 
 <div id="help-panel">
@@ -1222,7 +1222,7 @@ class Renderer {
 // ================================================================
 function renderBrain(canvas, brain) {
   const dpr = 2; // always render brain at 2x
-  const W = 248, H = 200;
+  const W = 248, H = 220;
   canvas.width = W * dpr; canvas.height = H * dpr;
   const ctx = canvas.getContext('2d');
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
