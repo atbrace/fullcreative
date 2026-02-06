@@ -186,6 +186,10 @@
     <span class="insp-lbl" style="margin-left:8px">speed</span><span class="insp-val" id="i-spd">1.0</span>
     <span class="insp-lbl" style="margin-left:8px">sig</span><span class="insp-val" id="i-sg0" style="color:hsl(30,75%,60%)">0</span><span class="insp-val" id="i-sg1" style="color:hsl(200,75%,60%)">0</span><span class="insp-val" id="i-sg2" style="color:hsl(320,75%,60%)">0</span>
   </div>
+  <div class="insp-row">
+    <span class="insp-lbl">share</span><span class="insp-val" id="i-shr" style="color:hsl(140,70%,55%)">0</span>
+    <span class="insp-lbl" style="margin-left:8px">mate</span><span class="insp-val" id="i-mat" style="color:hsl(340,75%,65%)">0</span>
+  </div>
   <div class="insp-divider"></div>
   <div class="insp-brain-lbl">NEURAL NETWORK</div>
   <canvas id="brain-canvas" width="496" height="440"></canvas>
@@ -239,7 +243,7 @@ const CFG = {
 
   BRAIN_INPUTS: 29,
   BRAIN_HIDDEN: 12,
-  BRAIN_OUTPUTS: 5,
+  BRAIN_OUTPUTS: 7,
   BRAIN_RECURRENT: 4,
   SIGNAL_CHANNELS: 3,
   MUTATION_RATE: 0.12,
@@ -278,6 +282,16 @@ const CFG = {
   PH_DIFFUSE_INTERVAL: 4,
   PH_MAX_VIZ: 8,
 
+  // Energy sharing
+  SHARE_RANGE: 20,
+  SHARE_RATE: 0.8,
+  SHARE_EFFICIENCY: 0.85,
+
+  // Mating
+  MATE_RANGE: 25,
+  MATE_THRESHOLD: 0.3,
+  MATE_ENERGY_MIN: 60,
+
   // Seasonal cycles
   SEASON_PERIOD: 14400,
 
@@ -285,7 +299,7 @@ const CFG = {
 };
 
 const INPUT_LABELS = ['fd.s','fd.c','fd.d','cr.s','cr.c','cr.d','cr.z','s0.s','s0.c','s0.v','s1.s','s1.c','s1.v','s2.s','s2.c','s2.v','nrg','1.0','kin','ob.s','ob.c','ob.d','ph.s','ph.c','ph.v','m.0','m.1','m.2','m.3'];
-const OUTPUT_LABELS = ['turn','spd','sg0','sg1','sg2'];
+const OUTPUT_LABELS = ['turn','spd','sg0','sg1','sg2','shr','mat'];
 const SIGNAL_HUES = [30, 200, 320]; // gold, blue, magenta - universal per channel
 
 // ================================================================
@@ -363,6 +377,14 @@ class Brain {
   mutate(rate, amount) {
     const m = (a) => { for (let i = 0; i < a.length; i++) if (Math.random() < rate) a[i] += (Math.random() - 0.5) * 2 * amount; };
     m(this.wih); m(this.bh); m(this.who); m(this.bo);
+  }
+
+  static crossover(a, b) {
+    const child = new Brain(a.ni, a.nh, a.no);
+    const mix = (dst, sa, sb) => { for (let i = 0; i < dst.length; i++) dst[i] = Math.random() < 0.5 ? sa[i] : sb[i]; };
+    mix(child.wih, a.wih, b.wih); mix(child.bh, a.bh, b.bh);
+    mix(child.who, a.who, b.who); mix(child.bo, a.bo, b.bo);
+    return child;
   }
 }
 
@@ -590,9 +612,13 @@ class Creature {
     this.age = 0;
     this.alive = true;
     this.radius = CFG.BASE_RADIUS * this.genes.size;
+    this.shareOut = 0;
+    this.mateOut = 0;
     this.body = []; // trailing body positions
     this._nfPos = null; // nearest food position (for viz)
     this._ncPos = null; // nearest creature position (for viz)
+    this._ncRef = null; // nearest creature reference (for sharing)
+    this._ncDist = Infinity; // distance to nearest creature
   }
 
   static createRandom(x, y) {
@@ -606,6 +632,8 @@ class Creature {
     const inp = new Float32Array(nSensory);
     this._nfPos = null;
     this._ncPos = null;
+    this._ncRef = null;
+    this._ncDist = Infinity;
 
     // --- Nearest food ---
     let bfDist = Infinity, bfAngle = 0;
@@ -628,6 +656,7 @@ class Creature {
       if (d < bcDist) {
         bcDist = d; bcAngle = Math.atan2(nc[i].pos.y - this.pos.y, nc[i].pos.x - this.pos.x);
         bcRelSize = nc[i].radius / this.radius; this._ncPos = nc[i].pos;
+        this._ncRef = nc[i]; this._ncDist = d;
         bcHue = nc[i].genes.hue;
       }
     }
@@ -699,6 +728,8 @@ class Creature {
     this.speed = clamp((out[1] + 1) * 0.5 * CFG.BASE_SPEED * this.genes.speedGene, 0, CFG.MAX_SPEED);
     for (let ch = 0; ch < CFG.SIGNAL_CHANNELS; ch++)
       this.signals[ch] = (out[2 + ch] + 1) * 0.5; // 0..1
+    this.shareOut = (out[5] + 1) * 0.5; // 0..1
+    this.mateOut = (out[6] + 1) * 0.5;  // 0..1
   }
 
   move(W, H, obstacles, currents) {
@@ -770,17 +801,33 @@ class Creature {
     this.age++;
   }
 
-  reproduce() {
-    const cg = {
-      hue: (this.genes.hue + rand(-CFG.HUE_MUTATION, CFG.HUE_MUTATION) + 360) % 360,
-      size: clamp(this.genes.size + rand(-0.08, 0.08), 0.5, 2.0),
-      speedGene: clamp(this.genes.speedGene + rand(-0.08, 0.08), 0.5, 2.0),
-    };
-    const cb = this.brain.clone();
-    cb.mutate(CFG.MUTATION_RATE, CFG.MUTATION_AMOUNT);
+  reproduce(mate) {
+    let cg, cb, gen;
+    if (mate) {
+      // Sexual reproduction: crossover genes and brain
+      cg = {
+        hue: ((Math.random() < 0.5 ? this.genes.hue : mate.genes.hue) + rand(-CFG.HUE_MUTATION, CFG.HUE_MUTATION) + 360) % 360,
+        size: clamp((this.genes.size + mate.genes.size) / 2 + rand(-0.08, 0.08), 0.5, 2.0),
+        speedGene: clamp((this.genes.speedGene + mate.genes.speedGene) / 2 + rand(-0.08, 0.08), 0.5, 2.0),
+      };
+      cb = Brain.crossover(this.brain, mate.brain);
+      cb.mutate(CFG.MUTATION_RATE, CFG.MUTATION_AMOUNT);
+      mate.energy *= 0.85; // mate pays 15% energy cost
+      gen = Math.max(this.generation, mate.generation) + 1;
+    } else {
+      // Asexual reproduction: clone + mutate
+      cg = {
+        hue: (this.genes.hue + rand(-CFG.HUE_MUTATION, CFG.HUE_MUTATION) + 360) % 360,
+        size: clamp(this.genes.size + rand(-0.08, 0.08), 0.5, 2.0),
+        speedGene: clamp(this.genes.speedGene + rand(-0.08, 0.08), 0.5, 2.0),
+      };
+      cb = this.brain.clone();
+      cb.mutate(CFG.MUTATION_RATE, CFG.MUTATION_AMOUNT);
+      gen = this.generation + 1;
+    }
     const tot = this.energy;
     this.energy = tot * CFG.REPRODUCE_KEEP;
-    const child = new Creature(this.pos.x + rand(-10, 10), this.pos.y + rand(-10, 10), cg, cb, this.generation + 1);
+    const child = new Creature(this.pos.x + rand(-10, 10), this.pos.y + rand(-10, 10), cg, cb, gen);
     child.energy = tot * CFG.REPRODUCE_GIVE;
     child.heading = this.heading + rand(-1, 1);
     return child;
@@ -896,7 +943,7 @@ class World {
     this.hotspots = [];
     this.obstacles = [];
     this.currents = [];
-    this.tick = 0; this.births = 0; this.deaths = 0; this.maxGen = 0;
+    this.tick = 0; this.births = 0; this.sexualBirths = 0; this.deaths = 0; this.maxGen = 0;
     this.popHistory = [];
     this.paused = false;
     this.selected = null;
@@ -1057,6 +1104,17 @@ class World {
       // Deposit pheromone at current position
       this.phGrid.deposit(c.pos.x, c.pos.y, CFG.PH_DEPOSIT);
 
+      // Energy sharing
+      if (c.shareOut > 0.1 && c._ncRef && c._ncRef.alive && c._ncDist < CFG.SHARE_RANGE) {
+        const give = Math.min(c.shareOut * CFG.SHARE_RATE, c.energy - 1);
+        if (give > 0) {
+          c.energy -= give;
+          c._ncRef.energy = Math.min(c._ncRef.energy + give * CFG.SHARE_EFFICIENCY, CFG.ENERGY_MAX);
+          if (this.tick % 8 === 0)
+            this.spawnP((c.pos.x + c._ncRef.pos.x) / 2, (c.pos.y + c._ncRef.pos.y) / 2, 140, 1, 0.6, 12, 1);
+        }
+      }
+
       // Eat food
       const nf = this.foodGrid.query(c.pos.x, c.pos.y, c.radius + CFG.EAT_RANGE);
       for (let j = 0; j < nf.length; j++) {
@@ -1086,11 +1144,25 @@ class World {
 
       // Reproduce
       if (c.energy > CFG.ENERGY_REPRODUCE && this.creatures.length + newborns.length < CFG.MAX_CREATURES) {
-        const child = c.reproduce();
+        // Check for willing mate nearby
+        let mate = null;
+        if (c.mateOut > CFG.MATE_THRESHOLD) {
+          const mn = this.creatureGrid.query(c.pos.x, c.pos.y, CFG.MATE_RANGE);
+          for (let j = 0; j < mn.length; j++) {
+            const m = mn[j];
+            if (m.id === c.id || !m.alive) continue;
+            if (m.mateOut > CFG.MATE_THRESHOLD && m.energy > CFG.MATE_ENERGY_MIN && c.pos.dist(m.pos) < CFG.MATE_RANGE) {
+              mate = m; break;
+            }
+          }
+        }
+        const child = c.reproduce(mate);
         newborns.push(child);
         this.births++;
+        if (mate) this.sexualBirths++;
         if (child.generation > this.maxGen) this.maxGen = child.generation;
         this.spawnP(c.pos.x, c.pos.y, c.genes.hue, 8, 2, 28, 2);
+        if (mate) this.spawnP(mate.pos.x, mate.pos.y, mate.genes.hue, 6, 2, 28, 2);
         audio.birthPing();
       }
 
@@ -1365,6 +1437,24 @@ class Renderer {
         }
       }
 
+      // Share ring (green)
+      if (c.shareOut > 0.15) {
+        const sa = (c.shareOut - 0.15) * 0.5;
+        const sr = rad * (2.0 + Math.sin(world.tick * 0.08 + c.id) * 0.3);
+        ctx.strokeStyle = `hsla(140, 70%, 55%, ${sa * 0.4})`;
+        ctx.lineWidth = 0.8;
+        ctx.beginPath(); ctx.arc(c.pos.x, c.pos.y, sr, 0, 6.283); ctx.stroke();
+      }
+
+      // Mate ring (pink)
+      if (c.mateOut > 0.25) {
+        const ma = (c.mateOut - 0.25) * 0.6;
+        const mr = rad * (1.6 + Math.sin(world.tick * 0.12 + c.id * 1.5) * 0.25);
+        ctx.strokeStyle = `hsla(340, 75%, 65%, ${ma * 0.35})`;
+        ctx.lineWidth = 0.8;
+        ctx.beginPath(); ctx.arc(c.pos.x, c.pos.y, mr, 0, 6.283); ctx.stroke();
+      }
+
       // Outer glow
       const oGrad = ctx.createRadialGradient(c.pos.x, c.pos.y, 0, c.pos.x, c.pos.y, rad * 3.8);
       oGrad.addColorStop(0, `hsla(${hue}, ${sat}%, ${light}%, ${0.45 + en * 0.3})`);
@@ -1579,10 +1669,12 @@ function renderBrain(canvas, brain) {
 
   function getOutputColor(i, v) {
     const av = Math.abs(v);
-    if (i >= sigOutputStart) {
+    if (i >= sigOutputStart && i < sigOutputStart + CFG.SIGNAL_CHANNELS) {
       const ch = i - sigOutputStart;
       return signalChannelColor(ch, Math.max(av, 0.15) * 0.85);
     }
+    if (i === 5) return `rgba(100, 200, 120, ${Math.max(av, 0.15) * 0.85})`; // share
+    if (i === 6) return `rgba(220, 120, 170, ${Math.max(av, 0.15) * 0.85})`; // mate
     return v >= 0 ? `rgba(70, 150, 255, ${av * 0.85})` : `rgba(255, 80, 100, ${av * 0.85})`;
   }
 
@@ -1594,10 +1686,12 @@ function renderBrain(canvas, brain) {
       const ch = Math.floor((i - sigInputStart) / 3);
       return signalChannelColor(ch, 0.35);
     }
-    if (layer === 2 && i >= sigOutputStart) {
+    if (layer === 2 && i >= sigOutputStart && i < sigOutputStart + CFG.SIGNAL_CHANNELS) {
       const ch = i - sigOutputStart;
       return signalChannelColor(ch, 0.35);
     }
+    if (layer === 2 && i === 5) return 'rgba(80, 180, 100, 0.4)';
+    if (layer === 2 && i === 6) return 'rgba(200, 100, 150, 0.4)';
     return 'rgba(90, 90, 140, 0.35)';
   }
 
@@ -1633,7 +1727,9 @@ function renderBrain(canvas, brain) {
 
   ctx.textAlign = 'left';
   for (let i = 0; i < no; i++) {
-    if (i >= sigOutputStart) ctx.fillStyle = signalChannelColor(i - sigOutputStart, 0.55);
+    if (i >= sigOutputStart && i < sigOutputStart + CFG.SIGNAL_CHANNELS) ctx.fillStyle = signalChannelColor(i - sigOutputStart, 0.55);
+    else if (i === 5) ctx.fillStyle = 'rgba(100, 200, 120, 0.55)';
+    else if (i === 6) ctx.fillStyle = 'rgba(220, 120, 170, 0.55)';
     else ctx.fillStyle = 'rgba(100, 100, 155, 0.55)';
     ctx.fillText(OUTPUT_LABELS[i], nodes[2][i].x + nr + 3, nodes[2][i].y + 2.5);
   }
@@ -1749,6 +1845,8 @@ function renderBrain(canvas, brain) {
     document.getElementById('i-spd').textContent = c.genes.speedGene.toFixed(2);
     for (let ch = 0; ch < CFG.SIGNAL_CHANNELS; ch++)
       document.getElementById('i-sg' + ch).textContent = c.signals[ch].toFixed(1);
+    document.getElementById('i-shr').textContent = c.shareOut.toFixed(1);
+    document.getElementById('i-mat').textContent = c.mateOut.toFixed(1);
 
     renderBrain(brainCanvas, c.brain);
   }

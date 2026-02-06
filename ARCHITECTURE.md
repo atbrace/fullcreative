@@ -49,14 +49,15 @@ emergence.html (~ 1785 lines)
 
 ## Key Classes
 
-### Brain (314-369)
+### Brain (314-388)
 Recurrent neural network. `forward(sensory)` appends memory to sensory inputs,
 computes hidden+output activations, then feeds hidden[0..3] back as memory.
 Stores `lastInput`, `lastHidden`, `lastOutput` for the inspector.
-- Architecture: 29 inputs (25 sensory + 4 recurrent), 12 hidden (tanh), 5 outputs (tanh)
+- Architecture: 29 inputs (25 sensory + 4 recurrent), 12 hidden (tanh), 7 outputs (tanh)
 - Weights: `wih` (input-hidden), `who` (hidden-output), `bh`, `bo` (biases)
 - `memory`: Float32Array(4) - recurrent state, zeroed in cloned children
 - `clone()` + `mutate(rate, amount)` for reproduction
+- `static crossover(a, b)` - uniform crossover: randomly picks each weight from parent a or b
 
 ### Obstacle (445-451)
 Simple circle: `pos` (Vec2) + `radius`. No methods - collision and perception
@@ -79,17 +80,20 @@ Chemical trail system. Low-resolution grid (~20px cells) covering the world.
 - `buildMask(obstacles)`: Pre-computes which cells are inside obstacle circles
 - `canvas`/`imgData`: Offscreen rendering surface for pheromone overlay visualization
 
-### Creature (579-788)
+### Creature (590-835)
 The main entity. Key methods:
-- `perceive(foodGrid, creatureGrid, obstacles, phGrid)` [603-698]: Queries spatial
+- `perceive(foodGrid, creatureGrid, obstacles, phGrid)` [614-705]: Queries spatial
   grids for nearest food, nearest creature, nearest signaler per channel, nearest
   obstacle surface, and pheromone gradient. Returns 25-float sensory array.
-  Also stores `_nfPos`, `_ncPos` for inspector visualization.
-- `think(inputs)` [700-706]: Runs brain forward pass, sets heading, speed, 3 signals.
-- `move(W, H, obstacles, currents)` [708-775]: Pushes body trail, updates position,
+  Also stores `_nfPos`, `_ncPos` for viz, `_ncRef`/`_ncDist` for sharing.
+- `think(inputs)` [707-720]: Runs brain forward pass, sets heading, speed, 3 signals,
+  shareOut, mateOut.
+- `move(W, H, obstacles, currents)` [722-801]: Pushes body trail, updates position,
   applies current zone drift, bounces walls with random perturbation, soft wall
   repulsion, collides with obstacles (push-out + heading reflection), deducts metabolism.
-- `reproduce()` [777-789]: Creates child with mutated genes and brain.
+- `reproduce(mate)` [803-834]: Creates child. If mate provided, uses Brain.crossover
+  for sexual reproduction (gene averaging, brain crossover). Otherwise asexual (clone +
+  mutate). Mate pays 15% energy cost.
 
 **Brain inputs (29 = 25 sensory + 4 recurrent):**
 | Index | Name   | Description                              |
@@ -124,7 +128,7 @@ The main entity. Key methods:
 | 27    | m.2    | recurrent memory 2 (from hidden[2])      |
 | 28    | m.3    | recurrent memory 3 (from hidden[3])      |
 
-**Brain outputs (5):**
+**Brain outputs (7):**
 | Index | Name   | Description                       |
 |-------|--------|-----------------------------------|
 | 0     | turn   | turn rate (-1 to 1)               |
@@ -132,6 +136,8 @@ The main entity. Key methods:
 | 2     | sg0    | signal channel 0 strength (0-1)   |
 | 3     | sg1    | signal channel 1 strength (0-1)   |
 | 4     | sg2    | signal channel 2 strength (0-1)   |
+| 5     | shr    | energy share intensity (0-1)      |
+| 6     | mat    | mating willingness (0-1)          |
 
 **Signal channel colors (universal, not species-dependent):**
 | Channel | Hue | Color   | Viz: ring radius |
@@ -141,32 +147,37 @@ The main entity. Key methods:
 | 2       | 320 | Magenta | 5.6x body        |
 
 **Brain viz node colors:**
-| Input range | Color       | Description      |
-|-------------|-------------|------------------|
-| 0-6         | Blue/Red    | Food + creature  |
-| 7-15        | Channel hue | Signal channels  |
-| 16-18       | Blue/Red    | Energy, bias, kin|
-| 19-21       | Slate blue  | Obstacle inputs  |
-| 22-24       | Warm amber  | Pheromone inputs |
-| 25-28       | Orange      | Recurrent memory |
+| Input range  | Color       | Description      |
+|--------------|-------------|------------------|
+| 0-6          | Blue/Red    | Food + creature  |
+| 7-15         | Channel hue | Signal channels  |
+| 16-18        | Blue/Red    | Energy, bias, kin|
+| 19-21        | Slate blue  | Obstacle inputs  |
+| 22-24        | Warm amber  | Pheromone inputs |
+| 25-28        | Orange      | Recurrent memory |
+| Output 0-1   | Blue/Red    | Turn, speed      |
+| Output 2-4   | Channel hue | Signal channels  |
+| Output 5     | Green       | Energy sharing   |
+| Output 6     | Pink        | Mating signal    |
 
-### World (889-1180)
+### World (900-1200)
 Simulation state and update loop. Key methods:
-- `seed()` [905-923]: Creates hotspots, generates obstacles, builds pheromone
+- `seed()` [916-934]: Creates hotspots, generates obstacles, builds pheromone
   obstacle mask, generates currents, spawns creatures + food.
-- `_generateObstacles()` [925-964]: 4-7 formations of 2-5 overlapping circles each.
+- `_generateObstacles()` [936-975]: 4-7 formations of 2-5 overlapping circles each.
   Placement rejects positions near edges, center, hotspots, other formations.
-- `_generateCurrents()` [966-977]: 2-4 current zones with random position, angle,
+- `_generateCurrents()` [977-988]: 2-4 current zones with random position, angle,
   strength, and radius.
-- `_spawnFood()` [979-1003]: Gaussian distribution around random weighted hotspot.
+- `_spawnFood()` [990-1014]: Gaussian distribution around random weighted hotspot.
   Retry loop rejects positions inside obstacles (up to 10 attempts).
-- `update(audio)` [1017-1153]: **The main simulation tick.** Order: compute
+- `update(audio)` [1028-1173]: **The main simulation tick.** Order: compute
   day/season multipliers, drift hotspots (faster in winter) + currents, diffuse
   pheromones (every 4 ticks), spawn food (modulated by day+season), rebuild grids,
   for each creature: perceive/think/move (with obstacles+currents+pheromone grid),
-  deposit pheromone, check eat, check predation, check reproduce, check death.
-  Then cleanup dead entities, update particles, population floor check (MIN_POP=18),
-  record population history.
+  deposit pheromone, energy sharing (if shareOut > 0.1 and nearest creature within
+  20px), check eat, check predation, check reproduce (with mate search if mateOut
+  > 0.3, fallback to asexual), check death. Then cleanup dead entities, update
+  particles, population floor check (MIN_POP=18), record population history.
 - `dayPhase` [1014]: Getter, returns 0-1 sine wave over DAY_PERIOD ticks.
 - `seasonPhase` [1015]: Getter, returns 0-1 sine wave over SEASON_PERIOD ticks.
 - `creatureAt(x,y)` [1169-1179]: Hit-test for mouse selection.
@@ -207,12 +218,13 @@ LFO. Events: `birthPing()` (pentatonic sine), `eatClick()` (high sine),
    +-- Rebuild SpatialGrids (food + creatures)
    +-- For each creature:
    |   +-- creature.perceive() -> 25 sensory inputs (incl. obstacle + pheromone)
-   |   +-- creature.think(inputs) -> brain.forward() -> set heading/speed/signal
+   |   +-- creature.think(inputs) -> brain.forward() -> set heading/speed/signal/share/mate
    |   +-- creature.move() -> update pos, apply current drift, bounce walls, collide obstacles, metabolism
    |   +-- Deposit pheromone at current position
+   |   +-- Energy sharing (if shareOut > 0.1, nearest creature < 20px, transfer energy)
    |   +-- Check food eating (spatial query, distance check)
    |   +-- Check predation (spatial query, size ratio check)
-   |   +-- Check reproduction (energy threshold)
+   |   +-- Check reproduction (energy threshold, mate search if mateOut > 0.3)
    |   +-- Check death (energy <= 0)
    +-- Add newborns, remove dead
    +-- Update particles
@@ -227,7 +239,7 @@ LFO. Events: `birthPing()` (pentatonic sine), `eatClick()` (high sine),
    |   +-- Pheromone grid overlay (warm amber, offscreen canvas scaled up)
    |   +-- Obstacles (source-over dark body, then lighter edge glow)
    |   +-- Food (pulsing glow + core dot)
-   |   +-- Creatures (body segments, signal ring, outer glow, core, heading dot)
+   |   +-- Creatures (body segments, signal rings, share ring, mate ring, outer glow, core, heading dot)
    |   +-- Selection decorations (vision range, attention lines, pulsing ring)
    |   +-- Particles
    +-- Main canvas (source-over):

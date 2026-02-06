@@ -123,8 +123,20 @@ social relationships) and Phase 2 (creatures need territory to compete over).
   intensity. Brain grew from 26-12-5 to 29-12-5 (25 sensory + 4 recurrent).
   Obstacle masking prevents pheromone diffusion through rocks. Rendered as warm
   amber glow overlay. Population floor bumped to 18/33 for larger brain.
+- Energy sharing (2026-02-06): New brain output (index 5, "shr") controls energy
+  transfer. When shareOut > 0.1 and nearest creature within 20px, energy flows from
+  donor to recipient (rate * shareOut per tick, 85% efficiency). Green ring visual.
+  No new brain inputs - creatures use existing nearest-creature + kin perception to
+  decide when to share. Green particles at sharing midpoint.
+- Mate selection / Sexual reproduction (2026-02-06): New brain output (index 6,
+  "mat") controls mating willingness. When creature has energy > reproduce threshold
+  and mateOut > 0.3, searches nearby creatures (within 25px) for willing mates.
+  If found: Brain.crossover() produces child with uniform crossover of both parents'
+  weights + genes averaged + mutation. Mate pays 15% energy cost. If no mate found:
+  asexual reproduction (clone + mutate) as fallback. Pink ring visual for mate signal.
+  Brain grew from 29-12-5 to 29-12-7 (2 new outputs, no new inputs).
 
-**Remaining:** See GitHub Issues labeled `phase-3`.
+**Phase 3 complete.** All items resolved.
 
 ### Phase 4: Spectator Intelligence
 *Make the simulation legible, narratable, and shareable.*
@@ -350,3 +362,47 @@ finding food - more weights initialized randomly means the useful signal-to-nois
 ratio in the initial population drops. Smart reseeding (survivor offspring)
 remains the key mechanism that makes this tractable at all. Two new ideas logged:
 species-scented pheromones (#42) and evolvable deposition rate (#43).
+
+### Session 9 - 2026-02-06
+**Built:** Energy sharing (#9) and mate selection (#10) - completing Phase 3.
+
+1. Energy sharing: New brain output "shr" (index 5) controls energy transfer
+   intensity. When shareOut > 0.1 and nearest creature is within 20px, energy
+   transfers at (shareOut * 0.8) per tick with 85% efficiency. Donor loses energy,
+   recipient gains 85% of it. Cannot self-deplete below 1 energy. Subtle green
+   particles spawn at the midpoint between sharer and recipient (every 8 ticks).
+   Green ring visual when shareOut > 0.15. No new brain inputs - creatures already
+   perceive nearest creature direction, distance, size, and kin similarity.
+2. Mate selection / Sexual reproduction: New brain output "mat" (index 6) controls
+   mating willingness. When a creature has energy > ENERGY_REPRODUCE and mateOut >
+   0.3, it searches within 25px for another creature with mateOut > 0.3 and energy
+   > 60. If found: sexual reproduction via Brain.crossover() (uniform crossover -
+   each weight randomly from parent A or B) + mutation. Child genes are averaged
+   from both parents with drift. Mate pays 15% energy cost. If no willing mate
+   found: falls back to asexual reproduction (clone + mutate). Pink ring visual
+   when mateOut > 0.25. Particle burst on both parents during sexual birth.
+3. Brain grew from 29-12-5 to 29-12-7 (2 new outputs, no new inputs). Total weight
+   count increased ~7% (from ~425 to ~451). No population floor adjustment needed.
+4. Inspector updated with share and mate output values in new row.
+5. Brain viz updated: share output colored green, mate output colored pink.
+6. World now tracks sexualBirths counter for benchmarking.
+
+**Benchmark (2 trials x 18000 ticks):**
+- Trial 1: gen 16, pop avg 28.3, 291 births (10 sexual), min pop 18, all PASS
+- Trial 2: gen 20, pop avg 26.5, 100 births (0 sexual), min pop 18, all PASS
+- No population floor adjustment needed: 2 new outputs add only ~7% weights
+- Sharing and mating outputs start as random noise (~0.5 avg) from unoptimized
+  brains. Most creatures randomly "share" and "mate-signal" but actual energy
+  transfer is rare (requires <20px proximity) and sexual reproduction is
+  opportunistic (requires both creatures willing + close + energy thresholds)
+
+**Learned:** Adding outputs is much cheaper than adding inputs for evolution.
+Inputs multiply the input-hidden weight matrix (29 * 12 = 348 weights per 29
+inputs), while outputs only add to the smaller hidden-output matrix (12 * 7 = 84
+total). This means we can add behavioral outputs more freely than sensory inputs
+without impacting evolution bootstrap. The fallback-to-asexual design for mating
+is critical: if sexual reproduction were the only option, random creatures would
+need to independently evolve (1) food-finding, (2) mate-finding, and (3) mutual
+signaling all at once - an impossibly large search space. Asexual fallback means
+food-finding evolves first, then mating behavior can emerge gradually on top of
+an already-viable population. Phase 3: Social Dynamics is now complete.

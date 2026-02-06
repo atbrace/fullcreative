@@ -82,6 +82,18 @@ async function run() {
             }
           }
 
+          // Sharing and mating activity
+          let sharingCount = 0, mateWillingCount = 0;
+          let totalShareOut = 0, totalMateOut = 0;
+          for (let j = 0; j < w.creatures.length; j++) {
+            const c = w.creatures[j];
+            totalShareOut += c.shareOut;
+            totalMateOut += c.mateOut;
+            if (c.shareOut > 0.1) sharingCount++;
+            if (c.mateOut > 0.3) mateWillingCount++;
+          }
+          const n = w.creatures.length || 1;
+
           snapshots.push({
             tick: t,
             pop: w.creatures.length,
@@ -89,6 +101,7 @@ async function run() {
             dayPhase: +w.dayPhase.toFixed(3),
             seasonPhase: +w.seasonPhase.toFixed(3),
             births: w.births,
+            sexualBirths: w.sexualBirths || 0,
             deaths: w.deaths,
             maxGen: w.maxGen,
             species: w.countSpecies(),
@@ -96,6 +109,10 @@ async function run() {
             cornerCount,
             inCurrentZone,
             numCurrents: w.currents.length,
+            sharingCount,
+            mateWillingCount,
+            avgShareOut: +(totalShareOut / n).toFixed(3),
+            avgMateOut: +(totalMateOut / n).toFixed(3),
           });
         }
       }
@@ -116,15 +133,16 @@ async function run() {
 
   // Population timeline
   console.log('--- Population Timeline ---');
-  console.log('  tick   | pop  | food | season     | gen | species | wall | corner | inCurrent');
-  console.log('  -------|------|------|------------|-----|---------|------|--------|----------');
+  console.log('  tick   | pop  | food | season     | gen | species | shr | mat | sexB | wall | corner');
+  console.log('  -------|------|------|------------|-----|---------|-----|-----|------|------|-------');
   for (const s of samples) {
     const sp = s.seasonPhase;
     const season = sp > 0.75 ? 'summer' : sp > 0.5 ? 'spring' : sp > 0.25 ? 'autumn' : 'winter';
     console.log(
       `  ${String(s.tick).padStart(6)} | ${String(s.pop).padStart(4)} | ${String(s.food).padStart(4)} | ` +
       `${season.padEnd(10)} | ${String(s.maxGen).padStart(3)} | ${String(s.species).padStart(7)} | ` +
-      `${String(s.wallCount).padStart(4)} | ${String(s.cornerCount).padStart(6)} | ${String(s.inCurrentZone).padStart(9)}`
+      `${String(s.sharingCount).padStart(3)} | ${String(s.mateWillingCount).padStart(3)} | ` +
+      `${String(s.sexualBirths).padStart(4)} | ${String(s.wallCount).padStart(4)} | ${String(s.cornerCount).padStart(6)}`
     );
   }
 
@@ -163,7 +181,18 @@ async function run() {
   console.log(`  Final generation: ${finalSample.maxGen}`);
   console.log(`  Final species: ${finalSample.species}`);
   console.log(`  Total births: ${finalSample.births}`);
+  console.log(`  Sexual births: ${finalSample.sexualBirths}`);
   console.log(`  Total deaths: ${finalSample.deaths}`);
+
+  // Social metrics
+  const avgShare = (samples.reduce((a, s) => a + s.avgShareOut, 0) / samples.length).toFixed(3);
+  const avgMate = (samples.reduce((a, s) => a + s.avgMateOut, 0) / samples.length).toFixed(3);
+  const avgSharing = (samples.reduce((a, s) => a + s.sharingCount, 0) / samples.length).toFixed(1);
+  const avgMateWilling = (samples.reduce((a, s) => a + s.mateWillingCount, 0) / samples.length).toFixed(1);
+  console.log(`  Avg share output: ${avgShare}`);
+  console.log(`  Avg mate output: ${avgMate}`);
+  console.log(`  Avg creatures sharing: ${avgSharing}`);
+  console.log(`  Avg creatures mate-willing: ${avgMateWilling}`);
 
   // Health checks
   console.log('\n--- Health Checks ---');
