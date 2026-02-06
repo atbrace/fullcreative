@@ -50,22 +50,22 @@ emergence.html (~ 1230 lines)
 Recurrent neural network. `forward(sensory)` appends memory to sensory inputs,
 computes hidden+output activations, then feeds hidden[0..3] back as memory.
 Stores `lastInput`, `lastHidden`, `lastOutput` for the inspector.
-- Architecture: 17 inputs (13 sensory + 4 recurrent), 12 hidden (tanh), 3 outputs (tanh)
+- Architecture: 23 inputs (19 sensory + 4 recurrent), 12 hidden (tanh), 5 outputs (tanh)
 - Weights: `wih` (input-hidden), `who` (hidden-output), `bh`, `bo` (biases)
 - `memory`: Float32Array(4) - recurrent state, zeroed in cloned children
 - `clone()` + `mutate(rate, amount)` for reproduction
 
-### Creature (400-520)
+### Creature (400-540)
 The main entity. Key methods:
-- `perceive(foodGrid, creatureGrid)` [426-475]: Queries spatial grids for nearest
-  food, nearest creature, nearest signaling creature. Returns 12-float input array.
-  Also stores `_nfPos`, `_ncPos` for inspector visualization.
-- `think(inputs)` [478-483]: Runs brain forward pass, sets heading, speed, signal.
-- `move(W, H)` [485-503]: Pushes body trail, updates position, bounces walls,
+- `perceive(foodGrid, creatureGrid)` [440-507]: Queries spatial grids for nearest
+  food, nearest creature, and nearest signaler per channel. Returns 19-float
+  sensory array. Also stores `_nfPos`, `_ncPos` for inspector visualization.
+- `think(inputs)` [509-514]: Runs brain forward pass, sets heading, speed, 3 signals.
+- `move(W, H)` [516-535]: Pushes body trail, updates position, bounces walls,
   deducts metabolism.
-- `reproduce()` [505-519]: Creates child with mutated genes and brain.
+- `reproduce()` [537-551]: Creates child with mutated genes and brain.
 
-**Brain inputs (17 = 13 sensory + 4 recurrent):**
+**Brain inputs (23 = 19 sensory + 4 recurrent):**
 | Index | Name   | Description                              |
 |-------|--------|------------------------------------------|
 | 0     | fd.s   | sin(relative angle to nearest food)      |
@@ -75,23 +75,38 @@ The main entity. Key methods:
 | 4     | cr.c   | cos(relative angle to nearest creature)  |
 | 5     | cr.d   | distance to nearest creature (0-1)       |
 | 6     | cr.z   | relative size of nearest creature (-1,1) |
-| 7     | sg.s   | sin(angle to nearest signaler)           |
-| 8     | sg.c   | cos(angle to nearest signaler)           |
-| 9     | sg.v   | signal strength of nearest signaler      |
-| 10    | nrg    | own energy (0-1)                         |
-| 11    | 1.0    | bias                                     |
-| 12    | kin    | hue similarity to nearest creature (-1,1)|
-| 13    | m.0    | recurrent memory 0 (from hidden[0])      |
-| 14    | m.1    | recurrent memory 1 (from hidden[1])      |
-| 15    | m.2    | recurrent memory 2 (from hidden[2])      |
-| 16    | m.3    | recurrent memory 3 (from hidden[3])      |
+| 7     | s0.s   | sin(angle to nearest ch0 signaler)       |
+| 8     | s0.c   | cos(angle to nearest ch0 signaler)       |
+| 9     | s0.v   | ch0 signal strength (0-1)                |
+| 10    | s1.s   | sin(angle to nearest ch1 signaler)       |
+| 11    | s1.c   | cos(angle to nearest ch1 signaler)       |
+| 12    | s1.v   | ch1 signal strength (0-1)                |
+| 13    | s2.s   | sin(angle to nearest ch2 signaler)       |
+| 14    | s2.c   | cos(angle to nearest ch2 signaler)       |
+| 15    | s2.v   | ch2 signal strength (0-1)                |
+| 16    | nrg    | own energy (0-1)                         |
+| 17    | 1.0    | bias                                     |
+| 18    | kin    | hue similarity to nearest creature (-1,1)|
+| 19    | m.0    | recurrent memory 0 (from hidden[0])      |
+| 20    | m.1    | recurrent memory 1 (from hidden[1])      |
+| 21    | m.2    | recurrent memory 2 (from hidden[2])      |
+| 22    | m.3    | recurrent memory 3 (from hidden[3])      |
 
-**Brain outputs (3):**
+**Brain outputs (5):**
 | Index | Name   | Description                       |
 |-------|--------|-----------------------------------|
 | 0     | turn   | turn rate (-1 to 1)               |
 | 1     | spd    | speed factor (mapped to 0-1)      |
-| 2     | sig    | signal strength (mapped to 0-1)   |
+| 2     | sg0    | signal channel 0 strength (0-1)   |
+| 3     | sg1    | signal channel 1 strength (0-1)   |
+| 4     | sg2    | signal channel 2 strength (0-1)   |
+
+**Signal channel colors (universal, not species-dependent):**
+| Channel | Hue | Color   | Viz: ring radius |
+|---------|-----|---------|------------------|
+| 0       | 30  | Gold    | 2.8x body        |
+| 1       | 200 | Blue    | 4.2x body        |
+| 2       | 320 | Magenta | 5.6x body        |
 
 ### World (621-794)
 Simulation state and update loop. Key methods:

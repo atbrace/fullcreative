@@ -183,11 +183,11 @@
   <div class="insp-row">
     <span class="insp-lbl">size</span><span class="insp-val" id="i-size">1.0</span>
     <span class="insp-lbl" style="margin-left:8px">speed</span><span class="insp-val" id="i-spd">1.0</span>
-    <span class="insp-lbl" style="margin-left:8px">signal</span><span class="insp-val" id="i-sig">0.0</span>
+    <span class="insp-lbl" style="margin-left:8px">sig</span><span class="insp-val" id="i-sg0" style="color:hsl(30,75%,60%)">0</span><span class="insp-val" id="i-sg1" style="color:hsl(200,75%,60%)">0</span><span class="insp-val" id="i-sg2" style="color:hsl(320,75%,60%)">0</span>
   </div>
   <div class="insp-divider"></div>
   <div class="insp-brain-lbl">NEURAL NETWORK</div>
-  <canvas id="brain-canvas" width="496" height="340"></canvas>
+  <canvas id="brain-canvas" width="496" height="400"></canvas>
 </div>
 
 <div id="help-panel">
@@ -236,10 +236,11 @@ const CFG = {
   REPRODUCE_GIVE: 0.38,
   BODY_SEGMENTS: 5,
 
-  BRAIN_INPUTS: 17,
+  BRAIN_INPUTS: 23,
   BRAIN_HIDDEN: 12,
-  BRAIN_OUTPUTS: 3,
+  BRAIN_OUTPUTS: 5,
   BRAIN_RECURRENT: 4,
+  SIGNAL_CHANNELS: 3,
   MUTATION_RATE: 0.12,
   MUTATION_AMOUNT: 0.25,
   HUE_MUTATION: 8,
@@ -252,8 +253,9 @@ const CFG = {
   BG: [8, 8, 26],
 };
 
-const INPUT_LABELS = ['fd.s','fd.c','fd.d','cr.s','cr.c','cr.d','cr.z','sg.s','sg.c','sg.v','nrg','1.0','kin','m.0','m.1','m.2','m.3'];
-const OUTPUT_LABELS = ['turn','spd','sig'];
+const INPUT_LABELS = ['fd.s','fd.c','fd.d','cr.s','cr.c','cr.d','cr.z','s0.s','s0.c','s0.v','s1.s','s1.c','s1.v','s2.s','s2.c','s2.v','nrg','1.0','kin','m.0','m.1','m.2','m.3'];
+const OUTPUT_LABELS = ['turn','spd','sg0','sg1','sg2'];
+const SIGNAL_HUES = [30, 200, 320]; // gold, blue, magenta - universal per channel
 
 // ================================================================
 //  MATH UTILITIES
@@ -417,7 +419,7 @@ class Creature {
     this.pos = new Vec2(x, y);
     this.heading = Math.random() * Math.PI * 2;
     this.speed = 0;
-    this.signal = 0;
+    this.signals = new Float32Array(CFG.SIGNAL_CHANNELS);
     this.genes = genes;
     this.brain = brain;
     this.generation = generation;
@@ -472,23 +474,33 @@ class Creature {
       inp[6] = clamp(bcRelSize - 1, -1, 1);
       // Kin recognition: hue similarity (+1 = same hue, -1 = opposite)
       const hueDiff = Math.min(Math.abs(this.genes.hue - bcHue), 360 - Math.abs(this.genes.hue - bcHue));
-      inp[12] = 1 - 2 * (hueDiff / 180);
+      inp[18] = 1 - 2 * (hueDiff / 180);
     } else { inp[5] = 1; }
 
-    // --- Nearest signaling creature ---
-    let bsDist = Infinity, bsAngle = 0, bsSig = 0;
+    // --- Nearest signaling creature per channel ---
+    const nCh = CFG.SIGNAL_CHANNELS;
+    const bsDist = new Float32Array(nCh).fill(Infinity);
+    const bsAngle = new Float32Array(nCh);
+    const bsSig = new Float32Array(nCh);
     for (let i = 0; i < nc.length; i++) {
-      if (nc[i].id === this.id || nc[i].signal < 0.15) continue;
+      if (nc[i].id === this.id) continue;
       const d = this.pos.dist(nc[i].pos);
-      if (d < bsDist) { bsDist = d; bsAngle = Math.atan2(nc[i].pos.y - this.pos.y, nc[i].pos.x - this.pos.x); bsSig = nc[i].signal; }
+      const a = Math.atan2(nc[i].pos.y - this.pos.y, nc[i].pos.x - this.pos.x);
+      for (let ch = 0; ch < nCh; ch++) {
+        if (nc[i].signals[ch] < 0.15 || d >= bsDist[ch]) continue;
+        bsDist[ch] = d; bsAngle[ch] = a; bsSig[ch] = nc[i].signals[ch];
+      }
     }
-    if (bsDist < Infinity) {
-      const ra = wrapAngle(bsAngle - this.heading);
-      inp[7] = Math.sin(ra); inp[8] = Math.cos(ra); inp[9] = clamp(bsSig, 0, 1);
+    for (let ch = 0; ch < nCh; ch++) {
+      const base = 7 + ch * 3;
+      if (bsDist[ch] < Infinity) {
+        const ra = wrapAngle(bsAngle[ch] - this.heading);
+        inp[base] = Math.sin(ra); inp[base + 1] = Math.cos(ra); inp[base + 2] = clamp(bsSig[ch], 0, 1);
+      }
     }
 
-    inp[10] = clamp(this.energy / CFG.ENERGY_MAX, 0, 1);
-    inp[11] = 1; // bias
+    inp[16] = clamp(this.energy / CFG.ENERGY_MAX, 0, 1);
+    inp[17] = 1; // bias
     return inp;
   }
 
@@ -496,7 +508,8 @@ class Creature {
     const out = this.brain.forward(inputs);
     this.heading = wrapAngle(this.heading + out[0] * CFG.TURN_RATE);
     this.speed = clamp((out[1] + 1) * 0.5 * CFG.BASE_SPEED * this.genes.speedGene, 0, CFG.MAX_SPEED);
-    this.signal = (out[2] + 1) * 0.5; // 0..1
+    for (let ch = 0; ch < CFG.SIGNAL_CHANNELS; ch++)
+      this.signals[ch] = (out[2 + ch] + 1) * 0.5; // 0..1
   }
 
   move(W, H) {
@@ -919,13 +932,15 @@ class Renderer {
         ctx.beginPath(); ctx.arc(t.x, t.y, segR, 0, 6.283); ctx.fill();
       }
 
-      // Signal ring
-      if (c.signal > 0.25) {
-        const sa = (c.signal - 0.25) * 0.55;
-        const sr = rad * (3.0 + Math.sin(world.tick * 0.1 + c.id) * 0.6);
-        ctx.strokeStyle = `hsla(${hue}, ${sat}%, ${light + 15}%, ${sa * 0.4})`;
-        ctx.lineWidth = 0.8;
-        ctx.beginPath(); ctx.arc(c.pos.x, c.pos.y, sr, 0, 6.283); ctx.stroke();
+      // Signal rings (one per channel, universal colors)
+      for (let ch = 0; ch < CFG.SIGNAL_CHANNELS; ch++) {
+        if (c.signals[ch] > 0.25) {
+          const sa = (c.signals[ch] - 0.25) * 0.55;
+          const sr = rad * (2.8 + ch * 1.4 + Math.sin(world.tick * 0.1 + c.id + ch * 2.1) * 0.5);
+          ctx.strokeStyle = `hsla(${SIGNAL_HUES[ch]}, 75%, 60%, ${sa * 0.45})`;
+          ctx.lineWidth = 0.8;
+          ctx.beginPath(); ctx.arc(c.pos.x, c.pos.y, sr, 0, 6.283); ctx.stroke();
+        }
       }
 
       // Outer glow
@@ -1045,7 +1060,7 @@ class Renderer {
 // ================================================================
 function renderBrain(canvas, brain) {
   const dpr = 2; // always render brain at 2x
-  const W = 248, H = 170;
+  const W = 248, H = 200;
   canvas.width = W * dpr; canvas.height = H * dpr;
   const ctx = canvas.getContext('2d');
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -1093,38 +1108,79 @@ function renderBrain(canvas, brain) {
   // Draw nodes
   const nr = 4;
   const memStart = ni - CFG.BRAIN_RECURRENT;
-  function drawNode(n, isMemory) {
-    const av = Math.abs(n.v);
-    ctx.fillStyle = 'rgba(18, 18, 40, 0.85)';
-    ctx.beginPath(); ctx.arc(n.x, n.y, nr, 0, 6.283); ctx.fill();
-    if (isMemory) {
-      ctx.fillStyle = `rgba(220, 160, 60, ${Math.max(av, 0.15) * 0.85})`;
-    } else {
-      ctx.fillStyle = n.v >= 0
-        ? `rgba(70, 150, 255, ${av * 0.85})`
-        : `rgba(255, 80, 100, ${av * 0.85})`;
-    }
-    ctx.beginPath(); ctx.arc(n.x, n.y, nr * 0.75, 0, 6.283); ctx.fill();
-    ctx.strokeStyle = isMemory ? 'rgba(180, 140, 50, 0.4)' : 'rgba(90, 90, 140, 0.35)';
-    ctx.lineWidth = 0.5;
-    ctx.beginPath(); ctx.arc(n.x, n.y, nr, 0, 6.283); ctx.stroke();
+  const sigInputStart = 7, sigInputEnd = 7 + CFG.SIGNAL_CHANNELS * 3; // signal input range
+  const sigOutputStart = 2; // signal output range starts at index 2
+
+  function signalChannelColor(ch, alpha) {
+    const h = SIGNAL_HUES[ch];
+    return `hsla(${h}, 75%, 60%, ${alpha})`;
   }
 
-  for (let l = 0; l < 3; l++)
-    for (let i = 0; i < nodes[l].length; i++)
-      drawNode(nodes[l][i], l === 0 && i >= memStart);
+  function getInputColor(i, av) {
+    if (i >= memStart) return `rgba(220, 160, 60, ${Math.max(av, 0.15) * 0.85})`;
+    if (i >= sigInputStart && i < sigInputEnd) {
+      const ch = Math.floor((i - sigInputStart) / 3);
+      return signalChannelColor(ch, Math.max(av, 0.15) * 0.85);
+    }
+    return av > 0 ? `rgba(70, 150, 255, ${av * 0.85})` : `rgba(255, 80, 100, ${av * 0.85})`;
+  }
+
+  function getOutputColor(i, v) {
+    const av = Math.abs(v);
+    if (i >= sigOutputStart) {
+      const ch = i - sigOutputStart;
+      return signalChannelColor(ch, Math.max(av, 0.15) * 0.85);
+    }
+    return v >= 0 ? `rgba(70, 150, 255, ${av * 0.85})` : `rgba(255, 80, 100, ${av * 0.85})`;
+  }
+
+  function getStrokeColor(i, layer) {
+    if (layer === 0 && i >= memStart) return 'rgba(180, 140, 50, 0.4)';
+    if (layer === 0 && i >= sigInputStart && i < sigInputEnd) {
+      const ch = Math.floor((i - sigInputStart) / 3);
+      return signalChannelColor(ch, 0.35);
+    }
+    if (layer === 2 && i >= sigOutputStart) {
+      const ch = i - sigOutputStart;
+      return signalChannelColor(ch, 0.35);
+    }
+    return 'rgba(90, 90, 140, 0.35)';
+  }
+
+  for (let l = 0; l < 3; l++) {
+    for (let i = 0; i < nodes[l].length; i++) {
+      const n = nodes[l][i], av = Math.abs(n.v);
+      ctx.fillStyle = 'rgba(18, 18, 40, 0.85)';
+      ctx.beginPath(); ctx.arc(n.x, n.y, nr, 0, 6.283); ctx.fill();
+      ctx.fillStyle = l === 0 ? getInputColor(i, av)
+        : l === 2 ? getOutputColor(i, n.v)
+        : (n.v >= 0 ? `rgba(70, 150, 255, ${av * 0.85})` : `rgba(255, 80, 100, ${av * 0.85})`);
+      ctx.beginPath(); ctx.arc(n.x, n.y, nr * 0.75, 0, 6.283); ctx.fill();
+      ctx.strokeStyle = getStrokeColor(i, l);
+      ctx.lineWidth = 0.5;
+      ctx.beginPath(); ctx.arc(n.x, n.y, nr, 0, 6.283); ctx.stroke();
+    }
+  }
 
   // Labels
   ctx.font = '7.5px -apple-system, sans-serif';
   ctx.textAlign = 'right';
   for (let i = 0; i < ni; i++) {
-    ctx.fillStyle = i >= memStart ? 'rgba(220, 160, 60, 0.6)' : 'rgba(100, 100, 155, 0.55)';
+    if (i >= memStart) ctx.fillStyle = 'rgba(220, 160, 60, 0.6)';
+    else if (i >= sigInputStart && i < sigInputEnd) {
+      const ch = Math.floor((i - sigInputStart) / 3);
+      ctx.fillStyle = signalChannelColor(ch, 0.55);
+    }
+    else ctx.fillStyle = 'rgba(100, 100, 155, 0.55)';
     ctx.fillText(INPUT_LABELS[i], nodes[0][i].x - nr - 3, nodes[0][i].y + 2.5);
   }
 
   ctx.textAlign = 'left';
-  for (let i = 0; i < no; i++)
+  for (let i = 0; i < no; i++) {
+    if (i >= sigOutputStart) ctx.fillStyle = signalChannelColor(i - sigOutputStart, 0.55);
+    else ctx.fillStyle = 'rgba(100, 100, 155, 0.55)';
     ctx.fillText(OUTPUT_LABELS[i], nodes[2][i].x + nr + 3, nodes[2][i].y + 2.5);
+  }
 
   ctx.textAlign = 'start';
 }
@@ -1235,7 +1291,8 @@ function renderBrain(canvas, brain) {
     bar.style.background = `hsl(${eHue}, 65%, 50%)`;
     document.getElementById('i-size').textContent = c.genes.size.toFixed(2);
     document.getElementById('i-spd').textContent = c.genes.speedGene.toFixed(2);
-    document.getElementById('i-sig').textContent = c.signal.toFixed(2);
+    for (let ch = 0; ch < CFG.SIGNAL_CHANNELS; ch++)
+      document.getElementById('i-sg' + ch).textContent = c.signals[ch].toFixed(1);
 
     renderBrain(brainCanvas, c.brain);
   }

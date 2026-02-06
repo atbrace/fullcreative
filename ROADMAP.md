@@ -20,11 +20,13 @@ all from nothing but neural network mutation and survival pressure.
 ## Current State (v2)
 
 ### What's Built
-- 12-12-3 feedforward neural network brains (12 inputs, 12 hidden, 3 outputs)
+- 23-12-5 recurrent neural network brains (19 sensory + 4 memory inputs,
+  12 hidden, 5 outputs)
 - Perception: nearest food (direction, distance), nearest creature (direction,
-  distance, relative size), nearest signaling creature (direction, strength),
-  own energy, bias
-- Outputs: turn rate, speed, signal strength
+  distance, relative size, kin similarity), nearest signaler per channel
+  (3 channels x direction + strength), own energy, bias
+- Outputs: turn rate, speed, 3 signal channel strengths
+- 4 recurrent memory neurons (hidden[0..3] fed back as input)
 - Genetic traits: hue (color lineage), body size, speed multiplier
 - Organic body rendering with 5 trailing segments
 - Food spawning clustered around 5 drifting nutrient hotspots (gaussian distribution)
@@ -47,8 +49,9 @@ all from nothing but neural network mutation and survival pressure.
 
 ### What Needs Improvement
 - Creatures don't develop complex behaviors beyond basic foraging
-- Signaling system exists but creatures rarely evolve meaningful use of it
-- No creature memory - every decision is purely reactive to current frame
+- 3 signal channels exist but creatures haven't evolved meaningful use yet
+- Creature memory exists (4 recurrent neurons) but hasn't been observed producing
+  complex temporal behavior yet - needs more evolution time
 - Population dynamics can be monotonous (steady state or boom-bust with no variation)
 - No environmental structure beyond hotspots - world is flat and featureless
 - Species "speciation" is only by hue bucket, not behavioral divergence
@@ -66,11 +69,14 @@ biggest bottleneck to emergent complexity.
 
 **Completed:**
 - Recurrent connections (2026-02-06): 4 recurrent neurons feed hidden[0..3]
-  back as input. Brain is now 17-12-3 (13 sensory + 4 memory).
-- Kin recognition input (2026-02-06): Brain input at index 12 for hue
-  similarity to nearest creature (-1 = opposite, +1 = same).
+  back as input.
+- Kin recognition input (2026-02-06): hue similarity to nearest creature.
+- Multiple signal channels (2026-02-06): 3 independent channels with per-channel
+  directional perception. Brain is now 23-12-5.
+- Danger memory (2026-02-06): closed as by-design - recurrent connections and
+  signal channels provide the substrate for evolved avoidance behavior.
 
-**Remaining:** See GitHub Issues labeled `phase-1`.
+**Phase 1 complete.** All items resolved.
 
 ### Phase 2: Environmental Richness
 *Make the world worth navigating.*
@@ -156,3 +162,25 @@ creature perception, world update loop), so batching them into one session was
 the right call - doing them separately would have meant three passes through the
 same functions. The recurrent memory spec in the roadmap was almost directly
 translatable to code. Having detailed specs before implementation is valuable.
+
+### Session 4 - 2026-02-06
+**Built:** Multiple signal channels (#1) and danger memory assessment (#2).
+Completed Phase 1: Cognitive Depth.
+1. Signal channels: expanded from 1 to 3 independent channels. Brain grew from
+   17-12-3 to 23-12-5 (19 sensory + 4 memory inputs, 5 outputs). Each channel
+   has its own directional perception (sin, cos, strength) - 9 signal inputs
+   total. Universal channel colors: gold (ch0), blue (ch1), magenta (ch2) for
+   visual legibility regardless of species hue. Concentric signal rings at
+   different radii with phase-shifted pulsing. Brain viz colors signal
+   input/output nodes by channel. Inspector shows 3 color-coded signal values.
+2. Danger memory: closed as by-design. Recurrent memory + multi-channel signals
+   provide the substrate for evolved predator-avoidance. An explicit "was attacked"
+   input would bypass emergence. Will revisit if behavior stalls.
+3. Set up GitHub Issues workflow with labels, hygiene hook, and /roadmap command.
+
+**Learned:** Universal colors for signal channels (gold/blue/magenta) are more
+legible than species-hue-colored rings. When channels have consistent colors,
+viewers can learn the "visual language" and read inter-creature communication at
+a glance. The decision to let danger memory emerge rather than engineer it was
+the right call for this project's philosophy - every shortcut we add is one less
+opportunity for evolution to surprise us. Phase 1 is now complete.
