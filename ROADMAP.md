@@ -451,3 +451,48 @@ immediately makes speciation dynamics visible: you can watch one color expand
 while others shrink, telling a story about competition. The fixed species names
 make each bucket feel like a character in the narrative. Phase 4 is now 50%
 complete (3 of 6 items closed).
+
+### Session 11 - 2026-02-06
+**Built:** Event detection and log (#14), signal investigation (#41),
+time-lapse mode (#16) - completing Phase 4 except for evolvable brain size.
+
+1. EventLog class (new file: src/events.js): Detects and displays ecosystem
+   narrative events in a subtle DOM overlay at bottom-left. 7 event types:
+   species extinction (pop drops from >= 3 to 0), species emergence (rises from
+   0 to >= 2), population boom (>50% increase over 100 ticks), population crash
+   (<60% over 100 ticks), season changes, predation sprees (>= 5 kills in 120
+   ticks), and generation milestones (10, 25, 50, 100, 200, 500, 1000). Events
+   fade in over 400ms, stay visible for 5s, fade out over 3s. Per-key cooldowns
+   (1.5s) prevent spam at high speeds. Colored by event type and species hue.
+2. Signal channel investigation (#41): Benchmark analysis at 30000 ticks with
+   2648 creature observations. Verdict: signals are evolved noise, not functional
+   communication. Bimodal distribution (28-46% low, 29-46% high) is a tanh
+   saturation artifact. Species have different signal profiles (lineage weight
+   artifacts, not communication). Energy correlation is negligible (0.01-0.06).
+   sg2 drifts upward over generations (genetic drift, not function). This is
+   expected: functional signaling requires co-evolution of sender AND receiver.
+3. Time-lapse mode: Extended speed controls from {1x, 2x, 4x} to include
+   {16x, 32x} with a visual separator between normal and time-lapse speeds.
+   At speeds > 4x, individual audio events (birth, eat, death, predation) are
+   muted via a silent proxy while the ambient drone continues. Trail fade rate
+   adjusts with log2(speed) * 0.5 scaling to keep trails proportional. Keyboard
+   shortcut 't' toggles between 16x and 32x. Pairs beautifully with the event
+   log: fast-forward at 32x and watch the narrative unfold.
+
+**Benchmark (2 trials x 18000 ticks):** All health checks PASS both runs.
+Event log integration adds zero measurable overhead. Time-lapse rendering
+adjustments verified visually. Second trial showed excellent long-term dynamics:
+generation 28 reached, population boomed to 56, species consolidated from 10
+to 3 dominant lineages (Thura 23, Shiko 22, Mori 8), 8 sexual births.
+
+**Learned:** Signal channels are not being used for communication at current
+evolutionary timescales. This is not a bug - it's the expected outcome given
+that functional signaling requires simultaneous co-evolution of sender encoding
+and receiver decoding, a much harder optimization problem than individual food-
+finding. Options for future: (a) wait for longer evolution via time-lapse mode,
+(b) add direct selection pressure for signaling (e.g., predator warnings that
+help kin), (c) reduce the signal space to make accidental coordination more
+likely. The event log transforms the viewing experience from passive watching
+to narrative engagement - "Zelith went extinct" and "population boom" create
+a story that the stacked chart illustrates. Phase 4 is now 80% complete
+(5 of 6 items, #17 evolvable brain size remains as P1-high).

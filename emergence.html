@@ -78,6 +78,10 @@
     color: #9898c0; border-color: rgba(100, 100, 160, 0.45);
     background: rgba(40, 40, 80, 0.55);
   }
+  .spd-sep {
+    width: 1px; background: rgba(55, 55, 90, 0.25);
+    margin: 2px 3px; align-self: stretch;
+  }
 
   /* --- Inspector panel --- */
   #inspector {
@@ -125,6 +129,18 @@
     font-family: inherit; font-size: 0.56rem; color: #505070;
   }
 
+  /* --- Event log --- */
+  #event-log {
+    position: fixed; bottom: 90px; left: 24px; z-index: 10;
+    pointer-events: none;
+    opacity: 0; transition: opacity 0.8s ease;
+  }
+  #event-log.visible { opacity: 1; }
+  .evt-line {
+    font-size: 0.6rem; letter-spacing: 0.04em;
+    line-height: 1.85; white-space: nowrap;
+  }
+
   /* --- Pause indicator --- */
   #pause-label {
     position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
@@ -166,6 +182,9 @@
   <button class="spd-btn active" data-speed="1">1x</button>
   <button class="spd-btn" data-speed="2">2x</button>
   <button class="spd-btn" data-speed="4">4x</button>
+  <div class="spd-sep"></div>
+  <button class="spd-btn" data-speed="16">16x</button>
+  <button class="spd-btn" data-speed="32">32x</button>
 </div>
 
 <div id="inspector">
@@ -202,10 +221,12 @@
 <div id="help-panel">
   <div><kbd>click</kbd> creature: inspect &nbsp; empty: add food</div>
   <div><kbd>shift+click</kbd> add creature</div>
-  <div><kbd>1</kbd> <kbd>2</kbd> <kbd>4</kbd> simulation speed</div>
+  <div><kbd>1</kbd> <kbd>2</kbd> <kbd>4</kbd> speed &nbsp; <kbd>t</kbd> time-lapse (16x/32x)</div>
   <div><kbd>space</kbd> pause / play</div>
   <div><kbd>m</kbd> toggle music &nbsp; <kbd>h</kbd> toggle help &nbsp; <kbd>esc</kbd> deselect</div>
 </div>
+
+<div id="event-log"></div>
 
 <div id="pause-label">PAUSED</div>
 
@@ -218,6 +239,7 @@
 <script src="src/entities.js"></script>
 <script src="src/pheromones.js"></script>
 <script src="src/species.js"></script>
+<script src="src/events.js"></script>
 <script src="src/creature.js"></script>
 <script src="src/world.js"></script>
 <script src="src/audio.js"></script>

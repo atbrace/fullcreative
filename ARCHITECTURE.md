@@ -1,18 +1,19 @@
 # Emergence - Architecture Map
 
-Quick reference for navigating the Emergence codebase. Code is split across 10
+Quick reference for navigating the Emergence codebase. Code is split across 11
 files in `src/`, loaded via plain `<script>` tags in dependency order.
 
 ## File Structure
 
 ```
-emergence.html          HTML + CSS + script tags (~222 lines)
+emergence.html          HTML + CSS + script tags
 src/
   config.js             CFG object, label arrays, Vec2, math utilities
   brain.js              Brain class (neural network)
   entities.js           SpatialGrid, Particle, Hotspot, Food, Obstacle, CurrentZone
   pheromones.js         PheromoneGrid class
   species.js            SPECIES_NAMES array, SpeciesTracker class
+  events.js             EventLog class (ecosystem narrative events)
   creature.js           cidCounter, Creature class
   world.js              World class (simulation state + update loop)
   audio.js              AudioEngine class
@@ -23,7 +24,7 @@ src/
 ### Load Order (dependency chain)
 
 ```
-config -> brain -> entities -> pheromones -> species -> creature -> world -> audio -> renderer -> main
+config -> brain -> entities -> pheromones -> species -> events -> creature -> world -> audio -> renderer -> main
 ```
 
 Each file can reference classes/functions from all files loaded before it.
@@ -83,6 +84,16 @@ Species identification and population tracking.
   - `bucketOf(creature)`: Returns bucket index (0-11) for a creature.
   - `history`: Array of snapshots (max 600), each with `{buckets: [{b, hue, count}], total}`. Used by stacked species chart in renderer.
   - `species`: Map of bucket -> `{firstTick, peakPop}` for species metadata.
+
+### src/events.js
+Ecosystem narrative event detection and display.
+- **EventLog** class:
+  - `check(world)`: Called every tick. Detects species extinction (population drops from >= 3 to 0), species emergence (rises from 0 to >= 2), population boom/crash (>50%/<60% change over 100 ticks), season changes, predation sprees (>= 5 kills in 120 ticks), and generation milestones (10, 25, 50, 100, 200, 500, 1000).
+  - `notifyPredation()`: Called from world on each predation kill. Accumulates count for spree detection.
+  - `add(type, text, hue)`: Pushes a new event with real-time timestamp.
+  - `getVisible()`: Returns events with computed fade opacity (400ms fade-in, 5s visible, 3s fade-out). Max 6 visible at once.
+  - Cooldown system: per-event-key cooldown (1.5s) prevents spam at high speeds.
+  - Events rendered as DOM elements in `#event-log` div, styled by type and species hue.
 
 ### src/creature.js
 The main entity. Key methods:
@@ -183,13 +194,14 @@ Canvas drawing. Uses two canvases:
 ### src/main.js
 Bootstrap IIFE. Initializes Renderer, World, AudioEngine. Wires up:
 - Overlay click to start simulation
-- Speed buttons (1x, 2x, 4x)
-- Keyboard shortcuts (space, h, m, 1/2/4, escape)
+- Speed buttons (1x, 2x, 4x | 16x, 32x time-lapse)
+- Keyboard shortcuts (space, h, m, 1/2/4, t=time-lapse toggle, escape)
 - Mouse click (creature inspect, shift+click add creature, empty click add food)
 - Window resize
 - Inspector update (every 12 frames)
-- Stats update (every 12 frames)
+- Stats + event log update (every 12 frames)
 - Game loop via requestAnimationFrame
+- Time-lapse audio proxy (mutes individual events, keeps drone) for speeds > 4x
 - `window.__world` debug accessor
 
 ## Data Flow (One Frame)

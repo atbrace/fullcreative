@@ -23,13 +23,16 @@ class Renderer {
     this.tctx.fillRect(0, 0, this.w, this.h);
   }
 
-  render(world) {
+  render(world, simSpeed) {
+    simSpeed = simSpeed || 1;
     const tctx = this.tctx, ctx = this.mctx, W = this.w, H = this.h;
 
     // Day/night subtly affects trail fade
     const dayP = world.dayPhase;
     const seasonP = world.seasonPhase;
-    const trailFade = CFG.TRAIL_FADE_BASE * (0.8 + dayP * 0.4);
+    // At high speeds, increase fade to keep trails proportional
+    const speedFade = 1 + Math.log2(Math.max(simSpeed, 1)) * 0.5;
+    const trailFade = CFG.TRAIL_FADE_BASE * (0.8 + dayP * 0.4) * speedFade;
 
     // --- Trail canvas ---
     const [br, bg, bb] = CFG.BG;

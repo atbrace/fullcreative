@@ -14,6 +14,7 @@ class World {
     this.tick = 0; this.births = 0; this.sexualBirths = 0; this.deaths = 0; this.maxGen = 0;
     this.popHistory = [];
     this.speciesTracker = new SpeciesTracker();
+    this.eventLog = new EventLog();
     this.paused = false;
     this.selected = null;
   }
@@ -207,6 +208,7 @@ class World {
           c.energy = Math.min(c.energy + prey.energy * CFG.PREDATION_EFFICIENCY, CFG.ENERGY_MAX);
           this.spawnP(prey.pos.x, prey.pos.y, prey.genes.hue, 12, 2.5, 35, 2);
           this.deaths++;
+          this.eventLog.notifyPredation();
           audio.predationSweep();
         }
       }
@@ -294,6 +296,7 @@ class World {
       this.speciesTracker.update(this.creatures, this.tick);
     }
     if (this.tick % 30 === 0) audio.setPopulation(this.creatures.length);
+    this.eventLog.check(this);
   }
 
   resize(w, h) {

@@ -8,6 +8,7 @@
   const helpEl = document.getElementById('help-panel');
   const inspEl = document.getElementById('inspector');
   const pauseEl = document.getElementById('pause-label');
+  const eventLogEl = document.getElementById('event-log');
   const trailCanvas = document.getElementById('trail-canvas');
   const mainCanvas = document.getElementById('main-canvas');
   const brainCanvas = document.getElementById('brain-canvas');
@@ -19,6 +20,12 @@
 
   let started = false, showHelp = true, simSpeed = 1, frameCount = 0;
 
+  // Silent audio proxy for time-lapse speeds - keeps drone, mutes events
+  const timelapsAudio = {
+    eatClick() {}, birthPing() {}, deathThud() {}, predationSweep() {},
+    setPopulation(p) { audio.setPopulation(p); }
+  };
+
   // --- Start ---
   overlay.addEventListener('click', () => {
     if (started) return;
@@ -27,6 +34,7 @@
     statsEl.classList.add('visible');
     speedEl.classList.add('visible');
     helpEl.classList.add('visible');
+    eventLogEl.classList.add('visible');
     audio.start();
     world.seed();
     setTimeout(() => { if (showHelp) { showHelp = false; helpEl.classList.remove('visible'); } }, 10000);
@@ -54,6 +62,7 @@
     else if (k === '1') { setSpeed(1); }
     else if (k === '2') { setSpeed(2); }
     else if (k === '4') { setSpeed(4); }
+    else if (k === 't') { setSpeed(simSpeed === 16 ? 32 : 16); }
     else if (k === 'escape') { world.selected = null; inspEl.classList.remove('visible'); }
   });
 
@@ -142,14 +151,42 @@
     document.getElementById('s-time').textContent = min + ':' + sec;
   }
 
+  // --- Event log ---
+  function eventColor(type, hue) {
+    const h = Math.round(hue);
+    switch (type) {
+      case 'extinction': return 'hsl(' + h + ',30%,42%)';
+      case 'emergence':  return 'hsl(' + h + ',55%,55%)';
+      case 'boom':       return 'hsl(' + h + ',45%,50%)';
+      case 'bust':       return 'hsl(' + h + ',50%,48%)';
+      case 'season':     return 'hsl(' + h + ',35%,50%)';
+      case 'predation':  return 'hsl(' + h + ',55%,50%)';
+      case 'milestone':  return 'hsl(' + h + ',40%,55%)';
+      default:           return 'hsl(' + h + ',40%,50%)';
+    }
+  }
+
+  function updateEventLog() {
+    const events = world.eventLog.getVisible();
+    if (events.length === 0) { eventLogEl.innerHTML = ''; return; }
+    let html = '';
+    for (let i = 0; i < events.length; i++) {
+      const e = events[i];
+      html += '<div class="evt-line" style="opacity:' + e._opacity.toFixed(2) +
+        ';color:' + eventColor(e.type, e.hue) + '">' + e.text + '</div>';
+    }
+    eventLogEl.innerHTML = html;
+  }
+
   // --- Game loop ---
   function loop() {
     requestAnimationFrame(loop);
     if (!started) return;
-    for (let i = 0; i < simSpeed; i++) world.update(audio);
-    renderer.render(world);
+    const useAudio = simSpeed > 4 ? timelapsAudio : audio;
+    for (let i = 0; i < simSpeed; i++) world.update(useAudio);
+    renderer.render(world, simSpeed);
     frameCount++;
-    if (frameCount % 12 === 0) { updateStats(); updateInspector(); }
+    if (frameCount % 12 === 0) { updateStats(); updateInspector(); updateEventLog(); }
   }
   loop();
 })();
