@@ -189,7 +189,8 @@ Simulation state and update loop. Key methods:
 - `_generateObstacles()`: 4-7 formations of 2-5 overlapping circles each. Placement rejects positions near edges, center, hotspots, other formations.
 - `_generateCurrents()`: 2-4 current zones with random position, angle, strength, and radius.
 - `_spawnFood()`: Gaussian distribution around random weighted hotspot. Retry loop rejects positions inside obstacles (up to 10 attempts).
-- `update(audio)`: **The main simulation tick.** Order: compute day/season multipliers, drift hotspots (faster in winter) + currents, diffuse pheromones (every 4 ticks), spawn food (modulated by day+season), rebuild grids, for each creature: perceive/think/move (with obstacles+currents+pheromone grid), decrement hunt cooldown, deposit pheromone (brain-modulated: phDepOut * phDeposit gene), kin-only energy sharing (if shareOut > 0.1 and nearest kin within 20px), cooperative foraging bonus (if shareOut > 0.1 and cooperative kin within 50px), check eat, check predation (with kin defense bonus + hunt cooldown gate), check reproduce (with mate search if mateOut > 0.3, fallback to asexual), check death. Then cleanup dead entities, update particles, population floor check (MIN_POP=21), record population + trait history (including phDeposit), ecosystem audio state (every 60 ticks).
+- `update(audio)`: **The main simulation tick.** Order: compute day/season multipliers, drift hotspots (faster in winter) + currents, diffuse pheromones (every 4 ticks), spawn food (modulated by day+season), rebuild grids, for each creature: perceive/think/move (with obstacles+currents+pheromone grid), decrement hunt cooldown, deposit pheromone (brain-modulated: phDepOut * phDeposit gene), kin-only energy sharing (if shareOut > 0.1 and nearest kin within 20px), cooperative foraging bonus (if shareOut > 0.1 and cooperative kin within 50px, tracks pairs in `coopPairs` for rendering), check eat, check predation (with kin defense bonus + hunt cooldown gate), check reproduce (with mate search if mateOut > 0.3, fallback to asexual), check death. Then cleanup dead entities, update particles, population floor check (MIN_POP=21), record population + trait history (including phDeposit), ecosystem audio state (every 60 ticks).
+- `coopPairs`: Flat array [creatureA, creatureB, ...] of cooperative kin pairs. Rebuilt each tick during cooperative foraging bonus loop. Used by renderer for cooperation line visualization.
 - `toJSON()` / `loadFromJSON(data)` - full ecosystem serialization/deserialization for save/load. Includes creatures (with brain weights), food, hotspots, obstacles, currents, pheromone grid, tick counters, history.
 - `dayPhase`: Getter, returns 0-1 sine wave over DAY_PERIOD ticks.
 - `seasonPhase`: Getter, returns 0-1 sine wave over SEASON_PERIOD ticks.
@@ -205,10 +206,11 @@ LFO. Events: `birthPing()` (pentatonic sine), `eatClick()` (high sine),
 ### src/renderer.js
 Canvas drawing. Uses two canvases:
 - **Trail canvas** (behind): Semi-transparent fade with seasonal color temperature (warm amber in summer, cool blue in winter) + obstacle masking + creature position dots each frame. Creates slowly fading light trails.
-- **Main canvas** (front): Cleared each frame. Draws hotspot glows (dimmed in winter), current zone indicators (subtle glow + animated flow streaks), pheromone grid overlay (warm amber glow via offscreen canvas), obstacles (dark body + edge glow), food, creatures (body segments + signal rings + behavioral mode arc + outer glow + core + heading dot + selection decorations), particles, vignette, population graph.
+- **Main canvas** (front): Cleared each frame. Draws hotspot glows (dimmed in winter), current zone indicators (subtle glow + animated flow streaks), pheromone grid overlay (species-colored via offscreen canvas), territory boundary lines (where species pheromone zones meet), obstacles (dark body + edge glow), food, creatures (body segments + signal rings + behavioral mode arc + outer glow + core + heading dot + selection decorations), cooperation lines (teal lines between cooperative kin pairs), particles, vignette, population graph.
 - **Camera system**: `cam` and `camTarget` objects hold `{x, y, zoom}`. When a creature is selected (`world.selected`), camera targets it at 2.5x zoom. Otherwise targets world center at 1x. Smooth lerp (factor 0.06) with world-bounds clamping. Both canvases apply `translate(W/2, H/2) -> scale(zoom) -> translate(-camX, -camY)` transform around all world elements. UI layer (vignette, graphs) stays in screen space.
 - `screenToWorld(sx, sy)`: Reverse camera transform - converts screen pixel coordinates to world coordinates. Used by main.js click handler for creature selection and food/creature spawning.
 - `_renderPheromones(ctx, phGrid)`: Builds RGBA image data from pheromone grid, puts it on offscreen canvas, draws scaled up with bilinear interpolation.
+- `_renderTerritoryBorders(ctx, phGrid)`: Scans pheromone grid for adjacent cells with different dominant species (both above threshold 1.5). Draws subtle line segments at cell boundaries. All segments batched into a single canvas path for performance.
 - `drawTraitGraph(ctx, world, W, H)`: Line chart of evolvable trait averages (brain size, sense range, body size, speed) over time. 240x45px, positioned above species chart. Toggle via `renderer.showTraits` (key 'e').
 - `renderBrain(canvas, brain)`: Draws the neural network visualization on the inspector's canvas. Three columns (input, hidden, output) with colored connections and activation-brightness nodes.
 - Blend mode: `lighter` for simulation elements, `source-over` for UI + obstacles.
@@ -255,11 +257,13 @@ Bootstrap IIFE. Initializes Renderer, World, AudioEngine. Wires up:
    +-- Main canvas (lighter blend):
    |   +-- Hotspot glows (dimmed in winter)
    |   +-- Current zone indicators (glow + animated flow streaks)
-   |   +-- Pheromone grid overlay (warm amber, offscreen canvas scaled up)
+   |   +-- Pheromone grid overlay (species-colored, offscreen canvas scaled up)
+   |   +-- Territory boundary lines (where species zones meet)
    |   +-- Obstacles (source-over dark body, then lighter edge glow)
    |   +-- Food (pulsing glow + core dot)
    |   +-- Creatures (body segments, signal rings, share ring, mate ring, outer glow, core, heading dot)
    |   +-- Selection decorations (vision range, attention lines, pulsing ring)
+   |   +-- Cooperation lines (teal lines between cooperative kin pairs)
    |   +-- Particles
    +-- Main canvas (source-over):
        +-- Vignette

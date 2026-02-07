@@ -19,6 +19,7 @@ class World {
     this.eventLog = new EventLog();
     this.paused = false;
     this.selected = null;
+    this.coopPairs = []; // flat: [creatureA, creatureB, ...] for cooperation line rendering
   }
 
   seed() {
@@ -180,6 +181,7 @@ class World {
   update(audio) {
     if (this.paused) return;
     this.tick++;
+    this.coopPairs.length = 0;
 
     // Day/night affects food spawn rate
     const dayMul = 0.6 + this.dayPhase * 0.8; // 0.6 to 1.4
@@ -243,7 +245,10 @@ class World {
           const ally = coopNearby[j];
           if (ally.id === c.id || !ally.alive) continue;
           if (Math.floor(ally.genes.hue / 30) % 12 !== cBucket) continue;
-          if (ally.shareOut > CFG.COOP_SHARE_THRESHOLD) coopKin++;
+          if (ally.shareOut > CFG.COOP_SHARE_THRESHOLD) {
+            coopKin++;
+            if (c.id < ally.id) this.coopPairs.push(c, ally);
+          }
         }
         if (coopKin > 0) {
           c.energy = Math.min(c.energy + coopKin * CFG.COOP_BONUS, CFG.ENERGY_MAX);
@@ -523,6 +528,7 @@ class World {
     this.particles = [];
     this.recentPredations = 0;
     this.selected = null;
+    this.coopPairs = [];
     this.speciesTracker = new SpeciesTracker();
     this.eventLog = new EventLog();
     this.foodGrid = new SpatialGrid(this.w, this.h, CFG.GRID_CELL);

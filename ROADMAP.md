@@ -46,6 +46,8 @@ all from nothing but neural network mutation and survival pressure.
 - Speed controls (1x/2x/4x/16x/32x time-lapse)
 - Save/load ecosystem state (JSON files, keyboard s/l)
 - Behavioral mode indicators (foraging/hunting/fleeing/sharing/mating arcs)
+- Cooperation lines (teal network lines between cooperative kin)
+- Territory boundaries (subtle borders where species pheromone zones meet)
 - Brain-controlled pheromone deposition (8th output modulates gene max rate)
 - Vignette, particle effects, glow rendering
 
@@ -60,13 +62,18 @@ all from nothing but neural network mutation and survival pressure.
 - Pheromone trails create landscape-scale chemical memory
 
 ### What Needs Improvement
-- Emergent behavior exists (cooperation, pheromone-following, pack formation) but
-  is invisible to the viewer - measurable in benchmarks, not legible on screen
-- The "Wait, did that creature just...?" moment hasn't arrived yet
+- Cooperation is now visible (cooperation lines, territory boundaries, mode arcs)
+  but the ecosystem converges on a SINGLE strategy: big, fast, cooperative foragers
+  with shrinking brains. Predation vanishes by generation 100+.
+- The cooperative foraging bonus (0.05/tick per kin) is too strong - it crowds out
+  all alternative strategies including predation, solitary foraging, and stealth.
+  Diminishing returns or density-dependent scaling needed (#73).
+- Brain sizes evolve DOWN (12 -> 5.5-10.2) because the cooperation strategy is
+  computationally simple. Larger brains are metabolic waste. This limits the
+  complexity of evolved behavior.
 - 3 signal channels are confirmed evolved noise (Session 11)
-- Evolution has not had enough time - 54K ticks produces ~50-80 generations,
-  complex strategies may need thousands
-- No persistence - every run starts from scratch, discarding evolved populations
+- The "Wait, did that creature just...?" moment exists for cooperation but is
+  monotone - needs strategic diversity (not just everyone cooperating)
 
 ---
 
@@ -1195,3 +1202,60 @@ creatures near food have green arcs (foraging) while creatures near larger
 neighbors have yellow arcs (fleeing). This is the beginning of making the
 simulation self-documenting - the "wait, did that creature just...?" moment
 requires seeing what creatures are doing, not just where they are.
+
+### Session 22 - 2026-02-07
+**Built:** Cooperation lines, territory boundaries, and long evolution assessment.
+
+1. **Cooperation lines:** Subtle teal lines connecting creatures that are
+   actively cooperating (kin with shareOut > 0.1 within 50px). World tracks
+   cooperative pairs in flat array during the existing cooperative foraging
+   bonus loop (no extra spatial queries). Renderer draws lines with alpha
+   proportional to cooperation intensity. Deduplicated via id comparison.
+
+2. **Territory boundaries:** Pheromone grid border detection. For each cell
+   with significant pheromone (>1.5), checks right and bottom neighbors. If
+   adjacent cells have different dominant species, draws a subtle line segment
+   at the cell boundary. All segments batched into a single canvas path/stroke
+   for performance. Rendered in 'lighter' blend mode at very low alpha (0.07).
+
+3. **Long evolution benchmark (3 trials x 162K ticks, 185 avg generations):**
+   The most important findings of the project so far:
+
+   **Eusociality emerged.** Creatures independently evolved highly cooperative
+   behavior - 90 cooperative pairs per frame, 54-68 creatures in sharing mode
+   at any time. Share output maintained at 0.54-0.92 across all trials.
+
+   **Cognitive simplification.** Brain sizes evolved from default 12 down to
+   8.2 average (5.5 in one trial). The cooperation-foraging strategy is simple
+   enough that large brains are metabolic waste. This mirrors real evolutionary
+   biology: eusocial organisms often have simplified individual cognition.
+
+   **Predation collapsed.** Zero hunting behavior at 185 generations. Kin
+   defense bonus + large cooperative groups make prey untouchable. The
+   cooperative foraging bonus vastly outweighs predation rewards.
+
+   **Species consolidated to 2-4.** Natural competitive exclusion. Survivors
+   form tight cooperative clusters. Diet diverged between trials (0.08-0.68).
+
+   **New issues filed:** #71 (brain simplification investigation), #72
+   (predation collapse), #73 (diminishing returns on cooperation).
+
+**Learned:** The long evolution run answered the central question of Phase 6,
+but not in the way expected. The "wait, did that creature just...?" moment IS
+there - creatures evolved genuine cooperation, social clustering, and group
+defense. But the ecosystem converges on a single dominant strategy (cooperate
+and forage), eliminating predation drama. The cooperation visualization makes
+this legible - you can see the cooperation network covering the screen. But
+the spectator experience needs tension, not just harmony.
+
+The diagnosis: COOP_BONUS (0.05/tick per kin) is too strong relative to other
+strategies. At high cooperation density, every creature cooperates because the
+bonus is unconditional. There are no diminishing returns, no cost to large
+groups, and no counter-strategy. The next session should address this - not
+by adding new mechanics (Phase 6 principle), but by rebalancing existing ones
+to create a richer strategy space.
+
+The roadmap is now clear for the first time: all 6 phases are technically
+complete, but the Phase 6 completion criterion ("purposeful or surprising
+behavior at 10K+ generations") reveals a balance problem that must be solved
+before the project can rest.

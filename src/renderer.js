@@ -149,6 +149,9 @@ class Renderer {
     // Pheromone grid overlay
     this._renderPheromones(ctx, world.phGrid);
 
+    // Territory boundaries where species pheromone zones meet
+    this._renderTerritoryBorders(ctx, world.phGrid);
+
     // Obstacles - dark body (source-over)
     ctx.globalCompositeOperation = 'source-over';
     for (let i = 0; i < world.obstacles.length; i++) {
@@ -331,6 +334,21 @@ class Renderer {
       }
     }
 
+    // Cooperation lines between sharing kin
+    if (world.coopPairs.length > 0) {
+      ctx.lineWidth = 0.7;
+      for (let i = 0; i < world.coopPairs.length; i += 2) {
+        const a = world.coopPairs[i], b = world.coopPairs[i + 1];
+        const intensity = Math.min(a.shareOut, b.shareOut);
+        const alpha = 0.06 + intensity * 0.14;
+        ctx.strokeStyle = `rgba(100, 220, 180, ${alpha})`;
+        ctx.beginPath();
+        ctx.moveTo(a.pos.x, a.pos.y);
+        ctx.lineTo(b.pos.x, b.pos.y);
+        ctx.stroke();
+      }
+    }
+
     // Particles
     for (let i = 0; i < world.particles.length; i++) {
       const p = world.particles[i], a = p.alpha;
@@ -391,6 +409,44 @@ class Renderer {
     ctx.imageSmoothingEnabled = true;
     ctx.globalCompositeOperation = 'lighter';
     ctx.drawImage(phGrid.canvas, 0, 0, cols, rows, 0, 0, this.w, this.h);
+  }
+
+  _renderTerritoryBorders(ctx, phGrid) {
+    const cols = phGrid.cols, rows = phGrid.rows;
+    const cs = phGrid.cellSize;
+    const data = phGrid.data;
+    const threshold = 1.5;
+
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.strokeStyle = 'rgba(140, 150, 190, 0.07)';
+    ctx.lineWidth = 1.0;
+    ctx.beginPath();
+
+    for (let r = 0; r < rows - 1; r++) {
+      for (let c = 0; c < cols - 1; c++) {
+        const idx = r * cols + c;
+        if (data[idx] < threshold) continue;
+        const dom = phGrid.dominantSpecies(idx);
+
+        // Check right neighbor
+        const rIdx = idx + 1;
+        if (data[rIdx] >= threshold && phGrid.dominantSpecies(rIdx) !== dom) {
+          const bx = (c + 1) * cs;
+          ctx.moveTo(bx, r * cs);
+          ctx.lineTo(bx, (r + 1) * cs);
+        }
+
+        // Check bottom neighbor
+        const bIdx = idx + cols;
+        if (data[bIdx] >= threshold && phGrid.dominantSpecies(bIdx) !== dom) {
+          const by = (r + 1) * cs;
+          ctx.moveTo(c * cs, by);
+          ctx.lineTo((c + 1) * cs, by);
+        }
+      }
+    }
+
+    ctx.stroke();
   }
 
   drawGraph(ctx, world, W, H) {
