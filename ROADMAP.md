@@ -185,7 +185,19 @@ Phase 5 is complete when: a viewer can watch the simulation and observe that
 different species genuinely behave differently - not just different colors doing
 the same thing.
 
-**Open:** See GitHub Issues labeled `phase-5`.
+**Completed:**
+- Species-scented pheromones (2026-02-07): 12-layer pheromone grid with kin/foreign
+  trail perception. Brain inputs 25-28 (kp/fp direction + intensity).
+- Evolvable sensory range (2026-02-07): Gene senseRange (60-200, default 130) with
+  metabolic cost 0.0002/unit/tick. Creates scout vs territorial archetypes.
+- Niche food types (2026-02-07): Two food types (flora near hotspots, mineral near
+  obstacles) with evolvable diet gene and diet-weighted perception. Mineral food
+  rendered cyan, flora green. Creatures evolve dietary specialization with spatial
+  niche separation.
+
+**Phase 5 complete.** Remaining ideas (#21 dormancy, #19 evolvable body plan, #49
+sparse brain init) stashed. The three pillars (kin pheromones, sensory range, niche
+food) create genuine strategic diversity.
 
 ### Phase 6: The Long Dream (far future)
 *Aspirational features. May never be built. That's fine.*
@@ -669,3 +681,70 @@ brains discover, and hotspot spawning gives them food access to survive on.
 Interestingly, lower mutation rates made things worse despite Xavier weights being
 smaller - evolution needs aggressive mutation to explore the weight space, and
 Xavier prevents the old problem of mutations being ineffective due to saturation.
+
+### Session 15 - 2026-02-07
+**Built:** Energy economy rebalance + niche food types (#44) - completing Phase 5.
+
+1. **Deep ecosystem diagnostic:** Ran 10 x 54K-tick (15 min) assessments with
+   enhanced telemetry. Discovered the ecosystem was not self-sustaining: deaths
+   (3219) exceeded births (2243), average creature lifespan ~10 seconds, population
+   floor fired every ~14 seconds. Only 4.1% of creatures had enough energy to
+   reproduce. All creatures converged on one strategy (bigger, faster, blind forager).
+
+2. **Energy economy A/B testing:** Two rounds of A/B tests (6+3 configs, 5 runs each).
+   Discovered density-dependent regulation trap: reducing metabolism increases carrying
+   capacity, not lifespan. Population grows to absorb benefits. Found optimal config
+   (Config G): METABOLISM_BASE 0.12->0.07, SIZE_EXP 1.4->1.2, FOOD_ENERGY 28->35,
+   REPRODUCE_KEEP 0.38->0.45, REPRODUCE_GIVE 0.38->0.32. Near-sustainable B/D=0.95,
+   max oldest 132s (+45%), preserves predation at 5.1%.
+
+3. **Niche food types (#44):** Two food types with spatial separation:
+   - Flora food (55%): spawns near hotspots, green glow
+   - Mineral food (45%): spawns near obstacles, cyan glow, 20% energy premium
+   - Evolvable diet gene (0=flora specialist, 1=mineral specialist)
+   - Diet-weighted food perception: mismatched food appears up to 5x farther
+   - Energy affinity: 15% of max energy for mismatched food, 100% for matched
+   - Corpse food is universal (no diet penalty) - predators benefit from both niches
+   - Diet-aware creature spawning: initial + reseeded creatures spawn near food
+     matching the MINERAL_FOOD_RATIO probability (45% near obstacles, 55% near hotspots)
+   - Inspector shows diet gene value with color coding (green/cyan/neutral)
+
+4. **Diet specialization tuning:** Three iterative rounds of diagnostic benchmarks:
+   - Round 1: Diet converged to 100% flora (creatures couldn't distinguish food types)
+   - Fix 1: Diet-weighted perception (score /= max(affinity, 0.2))
+   - Round 2: 37.5% of runs still collapsed to pure flora (spawn location bias)
+   - Fix 2: Diet-aware spawn positions + DIET_MIN_AFFINITY 0.3->0.15 + mineral premium
+   - Round 3: 80% of runs show diet diversity, 23.5% avg mineral specialists
+
+**Final benchmark (10 x 54K ticks, all metrics):**
+```
+Max oldest:     106.4s (+17% from pre-session baseline)
+Avg oldest:      47.4s (+25%)
+Generation:       75.3
+Predation:       5.58% of deaths
+Species final:     4.5
+Turn/Speed var:  0.44/0.42 (decent behavioral diversity)
+Share/Mate var:  0.07/0.11 (still low - deeper issue)
+Trait evolution:  bigger (+0.28), faster (+0.28), smaller brain (-0.18), shorter sight (-14)
+Pass rate:       10/10
+```
+
+**Learned:** The biggest insight is the density-dependent regulation trap. Naive
+parameter changes (lower metabolism, more food) don't improve individual creature
+lifespans - they increase population until per-creature food intake returns to
+baseline. The energy economy needed to be rebalanced holistically: lower metabolism
+AND higher reproduction costs AND more food value, so that fewer creatures reproduce
+but those that do live longer and pass on better genes.
+
+Niche food types required three layers of design:
+(a) spatial separation (flora near hotspots, mineral near obstacles),
+(b) perceptual separation (diet-weighted distance scoring), and
+(c) economic separation (DIET_MIN_AFFINITY=0.15 + mineral energy premium).
+Without all three, diet always converged to a single strategy. The 20% failure rate
+(pure flora convergence) is acceptable - in real ecosystems, niche separation is
+also stochastic and not guaranteed.
+
+Share/mate behavioral diversity remains the outstanding challenge. Low variance in
+sharing and mating outputs suggests creatures haven't evolved strategic social
+behavior. This likely requires either new brain architecture or new mechanics that
+create direct fitness advantages for social coordination. Future work, not this session.

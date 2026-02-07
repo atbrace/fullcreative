@@ -64,10 +64,12 @@ class Hotspot {
 //  FOOD
 // ================================================================
 class Food {
-  constructor(x, y, hue, energy) {
+  constructor(x, y, hue, energy, type) {
     this.pos = new Vec2(x, y); this.alive = true; this.pulse = Math.random() * 6.28;
     this.hue = hue !== undefined ? hue : null;
     this.energy = energy || CFG.FOOD_ENERGY;
+    // type: 0=flora, 1=mineral, null=corpse (universal, no diet penalty)
+    this.type = type !== undefined ? type : 0;
   }
 }
 

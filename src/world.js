@@ -27,14 +27,8 @@ class World {
     this.phGrid.buildMask(this.obstacles);
     this._generateCurrents();
     for (let i = 0; i < CFG.INITIAL_CREATURES; i++) {
-      let x, y, ok;
-      do {
-        x = rand(40, this.w - 40); y = rand(40, this.h - 40); ok = true;
-        for (let j = 0; j < this.obstacles.length; j++) {
-          if (this.obstacles[j].pos.dist({ x, y }) < this.obstacles[j].radius + 15) { ok = false; break; }
-        }
-      } while (!ok);
-      this.creatures.push(Creature.createRandom(x, y));
+      const pos = this._dietSpawnPos();
+      this.creatures.push(Creature.createRandom(pos.x, pos.y));
     }
     for (let i = 0; i < CFG.INITIAL_FOOD; i++)
       this.food.push(this._spawnFood());
@@ -92,7 +86,29 @@ class World {
   }
 
   _spawnFood() {
-    // Weighted random hotspot
+    const isMineral = Math.random() < CFG.MINERAL_FOOD_RATIO;
+
+    if (isMineral && this.obstacles.length > 0) {
+      // Mineral food: spawn near a random obstacle surface
+      for (let attempt = 0; attempt < 10; attempt++) {
+        const ob = this.obstacles[randInt(0, this.obstacles.length)];
+        const angle = Math.random() * Math.PI * 2;
+        const dist = ob.radius + rand(8, 35); // just outside the obstacle
+        const margin = 35;
+        const fx = clamp(ob.pos.x + Math.cos(angle) * dist, margin, this.w - margin);
+        const fy = clamp(ob.pos.y + Math.sin(angle) * dist, margin, this.h - margin);
+        // Reject if inside another obstacle
+        let blocked = false;
+        for (let i = 0; i < this.obstacles.length; i++) {
+          const o2 = this.obstacles[i];
+          const dx = fx - o2.pos.x, dy = fy - o2.pos.y;
+          if (dx * dx + dy * dy < o2.radius * o2.radius) { blocked = true; break; }
+        }
+        if (!blocked) return new Food(fx, fy, undefined, Math.round(CFG.FOOD_ENERGY * 1.2), 1);
+      }
+    }
+
+    // Flora food: near a weighted random hotspot
     let total = 0;
     for (let i = 0; i < this.hotspots.length; i++) total += this.hotspots[i].strength;
 
@@ -104,7 +120,7 @@ class World {
         if (r <= 0) { hs = this.hotspots[i]; break; }
       }
       const sp = CFG.HOTSPOT_SPREAD;
-      const margin = 35; // match creature wall repulsion zone (~30px + radius)
+      const margin = 35;
       const fx = clamp(hs.x + gaussRand() * sp, margin, this.w - margin);
       const fy = clamp(hs.y + gaussRand() * sp, margin, this.h - margin);
 
@@ -115,10 +131,37 @@ class World {
         const dx = fx - ob.pos.x, dy = fy - ob.pos.y;
         if (dx * dx + dy * dy < ob.radius * ob.radius) { blocked = true; break; }
       }
-      if (!blocked) return new Food(fx, fy);
+      if (!blocked) return new Food(fx, fy, undefined, undefined, 0);
     }
-    // Fallback: random position
-    return new Food(rand(35, this.w - 35), rand(35, this.h - 35));
+    // Fallback: random position flora
+    return new Food(rand(35, this.w - 35), rand(35, this.h - 35), undefined, undefined, 0);
+  }
+
+  // Spawn position biased by food type: near hotspot (flora) or obstacle (mineral)
+  _dietSpawnPos() {
+    const nearObs = this.obstacles.length > 0 && Math.random() < CFG.MINERAL_FOOD_RATIO;
+    for (let attempt = 0; attempt < 15; attempt++) {
+      let x, y;
+      if (nearObs) {
+        const ob = this.obstacles[randInt(0, this.obstacles.length)];
+        const angle = Math.random() * Math.PI * 2;
+        const dist = ob.radius + rand(20, 60);
+        x = ob.pos.x + Math.cos(angle) * dist;
+        y = ob.pos.y + Math.sin(angle) * dist;
+      } else {
+        const hs = this.hotspots[randInt(0, this.hotspots.length)];
+        x = hs.x + gaussRand() * CFG.HOTSPOT_SPREAD;
+        y = hs.y + gaussRand() * CFG.HOTSPOT_SPREAD;
+      }
+      x = clamp(x, 40, this.w - 40);
+      y = clamp(y, 40, this.h - 40);
+      let blocked = false;
+      for (let j = 0; j < this.obstacles.length; j++) {
+        if (this.obstacles[j].pos.dist({ x, y }) < this.obstacles[j].radius + 15) { blocked = true; break; }
+      }
+      if (!blocked) return { x, y };
+    }
+    return { x: rand(40, this.w - 40), y: rand(40, this.h - 40) };
   }
 
   spawnP(x, y, hue, count, speed, life, size) {
@@ -194,8 +237,15 @@ class World {
         if (!f.alive) continue;
         if (c.pos.dist(f.pos) < c.radius + CFG.FOOD_RADIUS) {
           f.alive = false;
-          c.energy = Math.min(c.energy + f.energy, CFG.ENERGY_MAX);
-          this.spawnP(f.pos.x, f.pos.y, 140, 4, 1.5, 20, 1.5);
+          // Diet affinity: corpse food (type null) is universal, typed food depends on diet gene
+          let gainedEnergy = f.energy;
+          if (f.type !== null) {
+            const affinity = 1 - Math.abs(f.type - c.genes.diet);
+            gainedEnergy *= CFG.DIET_MIN_AFFINITY + (1 - CFG.DIET_MIN_AFFINITY) * affinity;
+          }
+          c.energy = Math.min(c.energy + gainedEnergy, CFG.ENERGY_MAX);
+          const eatHue = f.type === 1 ? 190 : 140; // cyan for mineral, green for flora
+          this.spawnP(f.pos.x, f.pos.y, eatHue, 4, 1.5, 20, 1.5);
           audio.eatClick();
         }
       }
@@ -242,9 +292,9 @@ class World {
       // Death
       if (c.energy <= 0) {
         c.alive = false; this.deaths++;
-        // Drop corpse food colored by creature's hue
+        // Drop corpse food colored by creature's hue (type null = universal, no diet penalty)
         if (this.food.length < CFG.MAX_FOOD + 50)
-          this.food.push(new Food(c.pos.x, c.pos.y, c.genes.hue, c.genes.size * 15));
+          this.food.push(new Food(c.pos.x, c.pos.y, c.genes.hue, c.genes.size * 15, null));
         this.spawnP(c.pos.x, c.pos.y, c.genes.hue, 10, 1.5, 38, 1.5);
         audio.deathThud();
       }
@@ -268,17 +318,8 @@ class World {
       const alive = this.creatures.filter(c => c.alive);
       alive.sort((a, b) => b.energy - a.energy);
       for (let i = 0; i < needed; i++) {
-        // Spawn near a random food hotspot for better survival odds
-        let x, y, ok;
-        do {
-          const hs = this.hotspots[randInt(0, this.hotspots.length)];
-          x = clamp(hs.x + gaussRand() * CFG.HOTSPOT_SPREAD, 40, this.w - 40);
-          y = clamp(hs.y + gaussRand() * CFG.HOTSPOT_SPREAD, 40, this.h - 40);
-          ok = true;
-          for (let j = 0; j < this.obstacles.length; j++) {
-            if (this.obstacles[j].pos.dist({ x, y }) < this.obstacles[j].radius + 15) { ok = false; break; }
-          }
-        } while (!ok);
+        // Spawn near food matching the creature's diet preference
+        const spawnPos = this._dietSpawnPos();
         // 85% mutated offspring of best survivors, 15% random (genetic diversity)
         if (alive.length > 0 && Math.random() < 0.85) {
           const parent = alive[i % alive.length];
@@ -289,12 +330,13 @@ class World {
             speedGene: clamp(parent.genes.speedGene + rand(-0.12, 0.12), 0.5, 2.0),
             brainSize: childBrainSize,
             senseRange: clamp(parent.genes.senseRange + rand(-CFG.SENSE_MUTATION * 2, CFG.SENSE_MUTATION * 2), CFG.SENSE_RANGE_MIN, CFG.SENSE_RANGE_MAX),
+            diet: clamp(parent.genes.diet + rand(-CFG.DIET_MUTATION * 2, CFG.DIET_MUTATION * 2), 0, 1),
           };
           const brain = parent.brain.resized(childBrainSize);
           brain.mutate(CFG.MUTATION_RATE * 1.5, CFG.MUTATION_AMOUNT * 1.5);
-          this.creatures.push(new Creature(x, y, genes, brain, parent.generation + 1));
+          this.creatures.push(new Creature(spawnPos.x, spawnPos.y, genes, brain, parent.generation + 1));
         } else {
-          this.creatures.push(Creature.createRandom(x, y));
+          this.creatures.push(Creature.createRandom(spawnPos.x, spawnPos.y));
         }
       }
     }

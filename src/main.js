@@ -121,6 +121,10 @@
       document.getElementById('i-sg' + ch).textContent = c.signals[ch].toFixed(1);
     document.getElementById('i-shr').textContent = c.shareOut.toFixed(1);
     document.getElementById('i-mat').textContent = c.mateOut.toFixed(1);
+    const dietVal = c.genes.diet;
+    const dietEl = document.getElementById('i-diet');
+    dietEl.textContent = dietVal.toFixed(2);
+    dietEl.style.color = dietVal < 0.35 ? 'hsl(140,60%,55%)' : dietVal > 0.65 ? 'hsl(200,65%,60%)' : 'hsl(170,40%,50%)';
     document.getElementById('i-brain').textContent = c.genes.brainSize + 'h';
     document.getElementById('i-vis').textContent = Math.round(c.genes.senseRange);
     document.getElementById('i-brain-lbl').textContent = 'NEURAL NETWORK ' + c.brain.ni + '-' + c.brain.nh + '-' + c.brain.no;

@@ -134,14 +134,19 @@ class Renderer {
     // Food
     for (let i = 0; i < world.food.length; i++) {
       const f = world.food[i];
-      f.pulse += 0.05;
+      f.pulse += f.type === 1 ? 0.07 : 0.05; // mineral pulses slightly faster
       const glow = 0.5 + Math.sin(f.pulse) * 0.2;
       const isCorpse = f.hue !== null;
+      const isMineral = f.type === 1;
       const grad = ctx.createRadialGradient(f.pos.x, f.pos.y, 0, f.pos.x, f.pos.y, 7);
       if (isCorpse) {
         grad.addColorStop(0, `hsla(${f.hue}, 55%, 45%, ${0.55 * glow})`);
         grad.addColorStop(0.35, `hsla(${f.hue}, 45%, 35%, ${0.18 * glow})`);
         grad.addColorStop(1, `hsla(${f.hue}, 35%, 25%, 0)`);
+      } else if (isMineral) {
+        grad.addColorStop(0, `rgba(100, 200, 255, ${0.55 * glow})`);
+        grad.addColorStop(0.35, `rgba(80, 170, 230, ${0.18 * glow})`);
+        grad.addColorStop(1, 'rgba(60, 140, 200, 0)');
       } else {
         grad.addColorStop(0, `rgba(100, 230, 160, ${0.55 * glow})`);
         grad.addColorStop(0.35, `rgba(80, 200, 140, ${0.18 * glow})`);
@@ -151,6 +156,7 @@ class Renderer {
       ctx.beginPath(); ctx.arc(f.pos.x, f.pos.y, 7, 0, 6.283); ctx.fill();
       ctx.fillStyle = isCorpse
         ? `hsla(${f.hue}, 65%, 55%, ${0.75 * glow})`
+        : isMineral ? `rgba(130, 210, 255, ${0.75 * glow})`
         : `rgba(150, 255, 200, ${0.75 * glow})`;
       ctx.beginPath(); ctx.arc(f.pos.x, f.pos.y, CFG.FOOD_RADIUS, 0, 6.283); ctx.fill();
     }

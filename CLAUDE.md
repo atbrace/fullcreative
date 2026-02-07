@@ -70,7 +70,8 @@ work, ask for it.
 
 ## Technical Constraints
 *These are the current constraints. They can be revisited if the vision demands it.*
-- Single HTML file, zero external dependencies
+- Multi-file architecture: `emergence.html` (HTML/CSS) + 9 JS files in `src/` loaded via plain `<script>` tags
+- Zero external dependencies - no bundler, no ES modules, works with `file://`
 - Must maintain 60fps with 200+ creatures on modern hardware
 - Canvas 2D rendering (no WebGL - accessibility matters)
 - Web Audio API for generative sound

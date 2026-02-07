@@ -33,6 +33,7 @@ class Creature {
       speedGene: rand(0.7, 1.3),
       brainSize: CFG.BRAIN_HIDDEN,
       senseRange: CFG.SENSE_RANGE_DEFAULT,
+      diet: Math.random(), // 0=flora specialist, 1=mineral specialist
     };
     return new Creature(x, y, genes, new Brain(CFG.BRAIN_INPUTS, CFG.BRAIN_HIDDEN, CFG.BRAIN_OUTPUTS).randomize(), 0);
   }
@@ -55,16 +56,23 @@ class Creature {
     this._ncRef = null;
     this._ncDist = Infinity;
 
-    // --- Nearest food ---
-    let bfDist = Infinity, bfAngle = 0;
+    // --- Nearest food (diet-weighted: matched food appears closer) ---
+    let bfScore = Infinity, bfRealDist = Infinity, bfAngle = 0;
     const nf = foodGrid.query(this.pos.x, this.pos.y, vr);
     for (let i = 0; i < nf.length; i++) {
-      const d = this.pos.dist(nf[i].pos);
-      if (d < bfDist) { bfDist = d; bfAngle = Math.atan2(nf[i].pos.y - this.pos.y, nf[i].pos.x - this.pos.x); this._nfPos = nf[i].pos; }
+      const realD = this.pos.dist(nf[i].pos);
+      let score = realD;
+      // Corpse food (type null) is universal - no distance penalty.
+      // Typed food: scale distance by 1/affinity so mismatched food seems farther.
+      if (nf[i].type !== null) {
+        const affinity = 1 - Math.abs(nf[i].type - this.genes.diet);
+        score /= Math.max(affinity, 0.2); // mismatched food up to 5x farther in perceived distance
+      }
+      if (score < bfScore) { bfScore = score; bfRealDist = realD; bfAngle = Math.atan2(nf[i].pos.y - this.pos.y, nf[i].pos.x - this.pos.x); this._nfPos = nf[i].pos; }
     }
-    if (bfDist < Infinity) {
+    if (bfRealDist < Infinity) {
       const ra = wrapAngle(bfAngle - this.heading);
-      inp[0] = Math.sin(ra); inp[1] = Math.cos(ra); inp[2] = clamp(bfDist / vr, 0, 1);
+      inp[0] = Math.sin(ra); inp[1] = Math.cos(ra); inp[2] = clamp(bfRealDist / vr, 0, 1);
     } else { inp[2] = 1; }
 
     // --- Nearest creature ---
@@ -246,6 +254,7 @@ class Creature {
         speedGene: clamp((this.genes.speedGene + mate.genes.speedGene) / 2 + rand(-0.08, 0.08), 0.5, 2.0),
         brainSize: childBrainSize,
         senseRange: clamp((this.genes.senseRange + mate.genes.senseRange) / 2 + rand(-CFG.SENSE_MUTATION, CFG.SENSE_MUTATION), CFG.SENSE_RANGE_MIN, CFG.SENSE_RANGE_MAX),
+        diet: clamp((this.genes.diet + mate.genes.diet) / 2 + rand(-CFG.DIET_MUTATION, CFG.DIET_MUTATION), 0, 1),
       };
       cb = Brain.crossover(this.brain, mate.brain, childBrainSize);
       cb.mutate(CFG.MUTATION_RATE, CFG.MUTATION_AMOUNT);
@@ -260,6 +269,7 @@ class Creature {
         speedGene: clamp(this.genes.speedGene + rand(-0.08, 0.08), 0.5, 2.0),
         brainSize: childBrainSize,
         senseRange: clamp(this.genes.senseRange + rand(-CFG.SENSE_MUTATION, CFG.SENSE_MUTATION), CFG.SENSE_RANGE_MIN, CFG.SENSE_RANGE_MAX),
+        diet: clamp(this.genes.diet + rand(-CFG.DIET_MUTATION, CFG.DIET_MUTATION), 0, 1),
       };
       cb = this.brain.resized(childBrainSize);
       cb.mutate(CFG.MUTATION_RATE, CFG.MUTATION_AMOUNT);
