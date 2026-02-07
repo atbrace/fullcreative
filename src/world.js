@@ -276,12 +276,14 @@ class World {
         // 50% mutated offspring of best survivors, 50% random (genetic diversity)
         if (alive.length > 0 && Math.random() < 0.5) {
           const parent = alive[i % alive.length];
+          const childBrainSize = Creature._mutateBrainSize(parent.genes.brainSize);
           const genes = {
             hue: (parent.genes.hue + rand(-CFG.HUE_MUTATION * 2, CFG.HUE_MUTATION * 2) + 360) % 360,
             size: clamp(parent.genes.size + rand(-0.12, 0.12), 0.5, 2.0),
             speedGene: clamp(parent.genes.speedGene + rand(-0.12, 0.12), 0.5, 2.0),
+            brainSize: childBrainSize,
           };
-          const brain = parent.brain.clone();
+          const brain = parent.brain.resized(childBrainSize);
           brain.mutate(CFG.MUTATION_RATE * 1.5, CFG.MUTATION_AMOUNT * 1.5);
           this.creatures.push(new Creature(x, y, genes, brain, parent.generation + 1));
         } else {

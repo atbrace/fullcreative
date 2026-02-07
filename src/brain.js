@@ -50,16 +50,107 @@ class Brain {
     return b;
   }
 
+  // Return a new brain with a different number of hidden neurons.
+  // Shared neurons keep their weights; new neurons get small random init.
+  resized(newNh) {
+    if (newNh === this.nh) return this.clone();
+    const b = new Brain(this.ni, newNh, this.no);
+    const shared = Math.min(this.nh, newNh);
+    // wih: layout is [input_i * nh + hidden_j]
+    for (let i = 0; i < this.ni; i++) {
+      for (let j = 0; j < shared; j++) {
+        b.wih[i * newNh + j] = this.wih[i * this.nh + j];
+      }
+      // New neurons get small random weights
+      for (let j = shared; j < newNh; j++) {
+        b.wih[i * newNh + j] = (Math.random() - 0.5) * 0.5;
+      }
+    }
+    // bh
+    for (let j = 0; j < shared; j++) b.bh[j] = this.bh[j];
+    for (let j = shared; j < newNh; j++) b.bh[j] = (Math.random() - 0.5) * 0.2;
+    // who: layout is [hidden_j * no + output_k]
+    for (let j = 0; j < shared; j++) {
+      for (let k = 0; k < this.no; k++) {
+        b.who[j * this.no + k] = this.who[j * this.no + k];
+      }
+    }
+    for (let j = shared; j < newNh; j++) {
+      for (let k = 0; k < this.no; k++) {
+        b.who[j * this.no + k] = (Math.random() - 0.5) * 0.5;
+      }
+    }
+    // bo: doesn't depend on nh
+    b.bo.set(this.bo);
+    b.memory.fill(0);
+    return b;
+  }
+
   mutate(rate, amount) {
     const m = (a) => { for (let i = 0; i < a.length; i++) if (Math.random() < rate) a[i] += (Math.random() - 0.5) * 2 * amount; };
     m(this.wih); m(this.bh); m(this.who); m(this.bo);
   }
 
-  static crossover(a, b) {
-    const child = new Brain(a.ni, a.nh, a.no);
-    const mix = (dst, sa, sb) => { for (let i = 0; i < dst.length; i++) dst[i] = Math.random() < 0.5 ? sa[i] : sb[i]; };
-    mix(child.wih, a.wih, b.wih); mix(child.bh, a.bh, b.bh);
-    mix(child.who, a.who, b.who); mix(child.bo, a.bo, b.bo);
+  // Crossover two brains into a child with targetNh hidden neurons.
+  // For shared neurons (index < min(a.nh, b.nh)): uniform crossover.
+  // For neurons only one parent has: copy from that parent.
+  // For neurons beyond both parents: small random init.
+  static crossover(a, b, targetNh) {
+    if (targetNh === undefined) targetNh = a.nh; // backward compat
+    const child = new Brain(a.ni, targetNh, a.no);
+    const minNh = Math.min(a.nh, b.nh);
+    const maxNh = Math.max(a.nh, b.nh);
+    const bigger = a.nh >= b.nh ? a : b;
+
+    // wih: [input_i * nh + hidden_j]
+    for (let i = 0; i < a.ni; i++) {
+      for (let j = 0; j < targetNh; j++) {
+        if (j < minNh) {
+          // Both parents have this neuron - uniform crossover
+          child.wih[i * targetNh + j] = Math.random() < 0.5
+            ? a.wih[i * a.nh + j]
+            : b.wih[i * b.nh + j];
+        } else if (j < maxNh) {
+          // Only one parent has this neuron - copy from the bigger
+          child.wih[i * targetNh + j] = bigger.wih[i * bigger.nh + j];
+        } else {
+          // Beyond both parents - small random
+          child.wih[i * targetNh + j] = (Math.random() - 0.5) * 0.5;
+        }
+      }
+    }
+
+    // bh
+    for (let j = 0; j < targetNh; j++) {
+      if (j < minNh) {
+        child.bh[j] = Math.random() < 0.5 ? a.bh[j] : b.bh[j];
+      } else if (j < maxNh) {
+        child.bh[j] = bigger.bh[j];
+      } else {
+        child.bh[j] = (Math.random() - 0.5) * 0.2;
+      }
+    }
+
+    // who: [hidden_j * no + output_k]
+    for (let j = 0; j < targetNh; j++) {
+      for (let k = 0; k < a.no; k++) {
+        if (j < minNh) {
+          child.who[j * a.no + k] = Math.random() < 0.5
+            ? a.who[j * a.no + k]
+            : b.who[j * b.no + k];
+        } else if (j < maxNh) {
+          child.who[j * a.no + k] = bigger.who[j * bigger.no + k];
+        } else {
+          child.who[j * a.no + k] = (Math.random() - 0.5) * 0.5;
+        }
+      }
+    }
+
+    // bo: uniform crossover (doesn't depend on nh)
+    for (let k = 0; k < a.no; k++) {
+      child.bo[k] = Math.random() < 0.5 ? a.bo[k] : b.bo[k];
+    }
+
     return child;
   }
 }

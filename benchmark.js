@@ -82,15 +82,20 @@ async function run() {
             }
           }
 
-          // Sharing and mating activity
+          // Sharing and mating activity + brain size stats
           let sharingCount = 0, mateWillingCount = 0;
           let totalShareOut = 0, totalMateOut = 0;
+          let totalBrainSize = 0, minBrain = 99, maxBrain = 0;
           for (let j = 0; j < w.creatures.length; j++) {
             const c = w.creatures[j];
             totalShareOut += c.shareOut;
             totalMateOut += c.mateOut;
             if (c.shareOut > 0.1) sharingCount++;
             if (c.mateOut > 0.3) mateWillingCount++;
+            const bs = c.genes.brainSize || c.brain.nh;
+            totalBrainSize += bs;
+            if (bs < minBrain) minBrain = bs;
+            if (bs > maxBrain) maxBrain = bs;
           }
           const n = w.creatures.length || 1;
 
@@ -118,6 +123,9 @@ async function run() {
             mateWillingCount,
             avgShareOut: +(totalShareOut / n).toFixed(3),
             avgMateOut: +(totalMateOut / n).toFixed(3),
+            avgBrainSize: +(totalBrainSize / n).toFixed(1),
+            minBrainSize: minBrain,
+            maxBrainSize: maxBrain,
           });
         }
       }
@@ -138,8 +146,8 @@ async function run() {
 
   // Population timeline
   console.log('--- Population Timeline ---');
-  console.log('  tick   | pop  | food | season     | gen | species | shr | mat | sexB | wall | corner');
-  console.log('  -------|------|------|------------|-----|---------|-----|-----|------|------|-------');
+  console.log('  tick   | pop  | food | season     | gen | species | shr | mat | sexB | wall | corner | brain(avg/min/max)');
+  console.log('  -------|------|------|------------|-----|---------|-----|-----|------|------|--------|------------------');
   for (const s of samples) {
     const sp = s.seasonPhase;
     const season = sp > 0.75 ? 'summer' : sp > 0.5 ? 'spring' : sp > 0.25 ? 'autumn' : 'winter';
@@ -147,7 +155,8 @@ async function run() {
       `  ${String(s.tick).padStart(6)} | ${String(s.pop).padStart(4)} | ${String(s.food).padStart(4)} | ` +
       `${season.padEnd(10)} | ${String(s.maxGen).padStart(3)} | ${String(s.species).padStart(7)} | ` +
       `${String(s.sharingCount).padStart(3)} | ${String(s.mateWillingCount).padStart(3)} | ` +
-      `${String(s.sexualBirths).padStart(4)} | ${String(s.wallCount).padStart(4)} | ${String(s.cornerCount).padStart(6)}`
+      `${String(s.sexualBirths).padStart(4)} | ${String(s.wallCount).padStart(4)} | ${String(s.cornerCount).padStart(6)} | ` +
+      `${s.avgBrainSize}/${s.minBrainSize}/${s.maxBrainSize}`
     );
   }
 
@@ -202,6 +211,14 @@ async function run() {
   console.log(`  Avg mate output: ${avgMate}`);
   console.log(`  Avg creatures sharing: ${avgSharing}`);
   console.log(`  Avg creatures mate-willing: ${avgMateWilling}`);
+
+  // Brain size metrics
+  const avgBrainOverall = (samples.reduce((a, s) => a + s.avgBrainSize, 0) / samples.length).toFixed(1);
+  const globalMinBrain = Math.min(...samples.map(s => s.minBrainSize));
+  const globalMaxBrain = Math.max(...samples.map(s => s.maxBrainSize));
+  const finalAvgBrain = samples[samples.length - 1].avgBrainSize;
+  console.log(`  Brain size: overall avg=${avgBrainOverall}, range=[${globalMinBrain}, ${globalMaxBrain}]`);
+  console.log(`  Final avg brain size: ${finalAvgBrain}`);
 
   // Health checks
   console.log('\n--- Health Checks ---');

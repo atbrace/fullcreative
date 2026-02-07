@@ -27,8 +27,22 @@ class Creature {
   }
 
   static createRandom(x, y) {
-    const genes = { hue: Math.random() * 360, size: rand(0.7, 1.4), speedGene: rand(0.7, 1.3) };
+    const genes = {
+      hue: Math.random() * 360,
+      size: rand(0.7, 1.4),
+      speedGene: rand(0.7, 1.3),
+      brainSize: CFG.BRAIN_HIDDEN,
+    };
     return new Creature(x, y, genes, new Brain(CFG.BRAIN_INPUTS, CFG.BRAIN_HIDDEN, CFG.BRAIN_OUTPUTS).randomize(), 0);
+  }
+
+  // Mutate brain size by +/- 1 with small probability, clamped to range
+  static _mutateBrainSize(parentSize) {
+    if (Math.random() < CFG.BRAIN_SIZE_MUTATION_RATE) {
+      const delta = Math.random() < 0.5 ? -1 : 1;
+      return clamp(parentSize + delta, CFG.BRAIN_HIDDEN_MIN, CFG.BRAIN_HIDDEN_MAX);
+    }
+    return parentSize;
   }
 
   perceive(foodGrid, creatureGrid, obstacles, phGrid) {
@@ -202,7 +216,8 @@ class Creature {
     this.heading = wrapAngle(this.heading);
 
     const sizeCost = Math.pow(this.genes.size, CFG.METABOLISM_SIZE_EXP);
-    this.energy -= (CFG.METABOLISM_BASE * sizeCost + this.speed * CFG.METABOLISM_SPEED_FACTOR);
+    const brainCost = this.genes.brainSize * CFG.METABOLISM_BRAIN_FACTOR;
+    this.energy -= (CFG.METABOLISM_BASE * sizeCost + this.speed * CFG.METABOLISM_SPEED_FACTOR + brainCost);
     this.age++;
   }
 
@@ -210,23 +225,29 @@ class Creature {
     let cg, cb, gen;
     if (mate) {
       // Sexual reproduction: crossover genes and brain
+      const childBrainSize = Creature._mutateBrainSize(
+        Math.random() < 0.5 ? this.genes.brainSize : mate.genes.brainSize
+      );
       cg = {
         hue: ((Math.random() < 0.5 ? this.genes.hue : mate.genes.hue) + rand(-CFG.HUE_MUTATION, CFG.HUE_MUTATION) + 360) % 360,
         size: clamp((this.genes.size + mate.genes.size) / 2 + rand(-0.08, 0.08), 0.5, 2.0),
         speedGene: clamp((this.genes.speedGene + mate.genes.speedGene) / 2 + rand(-0.08, 0.08), 0.5, 2.0),
+        brainSize: childBrainSize,
       };
-      cb = Brain.crossover(this.brain, mate.brain);
+      cb = Brain.crossover(this.brain, mate.brain, childBrainSize);
       cb.mutate(CFG.MUTATION_RATE, CFG.MUTATION_AMOUNT);
       mate.energy *= 0.85; // mate pays 15% energy cost
       gen = Math.max(this.generation, mate.generation) + 1;
     } else {
-      // Asexual reproduction: clone + mutate
+      // Asexual reproduction: clone + mutate, possibly resize
+      const childBrainSize = Creature._mutateBrainSize(this.genes.brainSize);
       cg = {
         hue: (this.genes.hue + rand(-CFG.HUE_MUTATION, CFG.HUE_MUTATION) + 360) % 360,
         size: clamp(this.genes.size + rand(-0.08, 0.08), 0.5, 2.0),
         speedGene: clamp(this.genes.speedGene + rand(-0.08, 0.08), 0.5, 2.0),
+        brainSize: childBrainSize,
       };
-      cb = this.brain.clone();
+      cb = this.brain.resized(childBrainSize);
       cb.mutate(CFG.MUTATION_RATE, CFG.MUTATION_AMOUNT);
       gen = this.generation + 1;
     }

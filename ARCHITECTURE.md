@@ -49,11 +49,13 @@ HTML structure + CSS only. Contains:
 Recurrent neural network. `forward(sensory)` appends memory to sensory inputs,
 computes hidden+output activations, then feeds hidden[0..3] back as memory.
 Stores `lastInput`, `lastHidden`, `lastOutput` for the inspector.
-- Architecture: 29 inputs (25 sensory + 4 recurrent), 12 hidden (tanh), 7 outputs (tanh)
+- Architecture: 29 inputs (25 sensory + 4 recurrent), 4-20 hidden (tanh, evolvable), 7 outputs (tanh)
+- Default hidden size: 12. Evolved via `genes.brainSize` (range CFG.BRAIN_HIDDEN_MIN to CFG.BRAIN_HIDDEN_MAX)
 - Weights: `wih` (input-hidden), `who` (hidden-output), `bh`, `bo` (biases)
-- `memory`: Float32Array(4) - recurrent state, zeroed in cloned children
+- `memory`: Float32Array(4) - recurrent state, zeroed in cloned/resized children
 - `clone()` + `mutate(rate, amount)` for reproduction
-- `static crossover(a, b)` - uniform crossover: randomly picks each weight from parent a or b
+- `resized(newNh)` - returns a new brain with adjusted hidden layer size (shared neurons keep weights, new neurons get small random init)
+- `static crossover(a, b, targetNh)` - uniform crossover that handles different-sized parents. Shared neurons (index < min) get crossover, extra neurons copy from larger parent, beyond-both neurons get random init
 
 ### src/entities.js
 Small data classes grouped together:
@@ -99,8 +101,9 @@ Ecosystem narrative event detection and display.
 The main entity. Key methods:
 - `perceive(foodGrid, creatureGrid, obstacles, phGrid)`: Queries spatial grids for nearest food, nearest creature, nearest signaler per channel, nearest obstacle surface, and pheromone gradient. Returns 25-float sensory array. Also stores `_nfPos`, `_ncPos` for viz, `_ncRef`/`_ncDist` for sharing.
 - `think(inputs)`: Runs brain forward pass, sets heading, speed, 3 signals, shareOut, mateOut.
-- `move(W, H, obstacles, currents)`: Pushes body trail, updates position, applies current zone drift, bounces walls with random perturbation, soft wall repulsion, collides with obstacles (push-out + heading reflection), deducts metabolism.
-- `reproduce(mate)`: Creates child. If mate provided, uses Brain.crossover for sexual reproduction (gene averaging, brain crossover). Otherwise asexual (clone + mutate). Mate pays 15% energy cost.
+- `move(W, H, obstacles, currents)`: Pushes body trail, updates position, applies current zone drift, bounces walls with random perturbation, soft wall repulsion, collides with obstacles (push-out + heading reflection), deducts metabolism (including brain size cost).
+- `reproduce(mate)`: Creates child with possible brain size mutation (+/-1, 8% chance). If mate provided, uses Brain.crossover at child's brain size for sexual reproduction. Otherwise asexual (clone + resize if mutated + mutate). Mate pays 15% energy cost.
+- `static _mutateBrainSize(parentSize)`: Returns parent size with 8% chance of +/-1, clamped to [4, 20].
 
 **Brain inputs (29 = 25 sensory + 4 recurrent):**
 | Index | Name   | Description                              |

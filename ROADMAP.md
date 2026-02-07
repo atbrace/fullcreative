@@ -153,7 +153,12 @@ and understanding it.
 - Stacked species population chart (2026-02-06): Replaced monochrome line with
   stacked area chart colored by species hue. Immediate visual storytelling.
 
-**Remaining:** See GitHub Issues labeled `phase-4`.
+- Evolvable brain size (2026-02-07): Hidden layer is now a gene (range 4-20,
+  default 12). 8% mutation rate per reproduction. Metabolic cost proportional
+  to brain size creates selection pressure. Variable-size crossover for sexual
+  reproduction. Inspector shows brain architecture dynamically.
+
+**Phase 4 complete.** All items resolved.
 
 ### Phase 5: Deep Evolution
 *Let evolution reshape not just behavior but biology.*
@@ -496,3 +501,44 @@ likely. The event log transforms the viewing experience from passive watching
 to narrative engagement - "Zelith went extinct" and "population boom" create
 a story that the stacked chart illustrates. Phase 4 is now 80% complete
 (5 of 6 items, #17 evolvable brain size remains as P1-high).
+
+### Session 12 - 2026-02-07
+**Built:** Evolvable brain size (#17) - completing Phase 4: Spectator Intelligence.
+
+1. Brain size as a gene: `genes.brainSize` is an evolvable integer (range 4-20,
+   default 12). Each reproduction has 8% chance of +/-1 mutation. This creates
+   a new axis of evolution: creatures can evolve larger brains for more complex
+   behavior or smaller brains for lower metabolic cost.
+2. Brain metabolism: added brain cost (brainSize * 0.003 per tick) to the
+   metabolism formula. This creates genuine selection pressure - bigger brains
+   must earn their keep through better food-finding to offset the cost.
+3. Variable-size crossover: `Brain.crossover(a, b, targetNh)` handles parents
+   with different hidden layer sizes. Shared neurons (index < min) get uniform
+   crossover, extra neurons copy from the larger parent, neurons beyond both
+   parents get small random initialization. Clean and biologically inspired.
+4. Brain resize: `Brain.resized(newNh)` for asexual reproduction with size
+   mutation. Shared neurons keep their weights, new neurons get small random
+   init. Preserves evolutionary progress while allowing exploration.
+5. Inspector shows brain size ("12h") and dynamic architecture label
+   ("NEURAL NETWORK 29-12-7") that updates per creature.
+6. Population floor reseeding now inherits brainSize gene from survivors and
+   applies brain size mutation.
+
+**Benchmark (2 trials x 18000 ticks):** All health checks PASS both runs.
+- Trial 1: brain range [10, 13], avg 11.9. Gen 18, pop avg 25.8, 0 floor hits.
+- Trial 2: brain range [11, 14], avg 12.2. Gen 23, pop avg 27.4, 0 floor hits.
+- Brain sizes evolve bidirectionally: creatures with 10-11 neurons (metabolic
+  advantage) and 13-14 neurons (cognitive advantage) both survive.
+- Average stays near 12, suggesting the default is close to optimal for current
+  environmental complexity. This should shift as the environment becomes richer.
+
+**Learned:** Adding evolvable brain size required careful handling of three
+edge cases: (a) sexual crossover between different-sized parents, (b) asexual
+reproduction with size mutation, and (c) population floor reseeding with
+inherited brain size. The uniform-crossover-on-shared-neurons approach is clean
+and extends naturally. The metabolic cost (0.003 per neuron per tick) is subtle
+but measurable - at default brain size 12, it adds 0.036/tick (about 30% of
+base metabolism 0.12). This is enough to create real selection pressure without
+making large brains instantly unviable. The 8% mutation rate means ~1 in 12
+births change brain size, giving evolution enough variance to explore without
+being too noisy. Phase 4: Spectator Intelligence is now complete.

@@ -120,6 +120,8 @@
       document.getElementById('i-sg' + ch).textContent = c.signals[ch].toFixed(1);
     document.getElementById('i-shr').textContent = c.shareOut.toFixed(1);
     document.getElementById('i-mat').textContent = c.mateOut.toFixed(1);
+    document.getElementById('i-brain').textContent = c.genes.brainSize + 'h';
+    document.getElementById('i-brain-lbl').textContent = 'NEURAL NETWORK ' + c.brain.ni + '-' + c.brain.nh + '-' + c.brain.no;
 
     renderBrain(brainCanvas, c.brain);
   }
