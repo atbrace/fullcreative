@@ -87,6 +87,7 @@ async function run() {
           let totalShareOut = 0, totalMateOut = 0;
           let totalBrainSize = 0, minBrain = 99, maxBrain = 0;
           let totalSenseRange = 0, minSense = 999, maxSense = 0;
+          let oldestAge = 0;
           for (let j = 0; j < w.creatures.length; j++) {
             const c = w.creatures[j];
             totalShareOut += c.shareOut;
@@ -101,6 +102,7 @@ async function run() {
             totalSenseRange += sr;
             if (sr < minSense) minSense = sr;
             if (sr > maxSense) maxSense = sr;
+            if (c.age > oldestAge) oldestAge = c.age;
           }
           const n = w.creatures.length || 1;
 
@@ -134,6 +136,7 @@ async function run() {
             avgSenseRange: +(totalSenseRange / n).toFixed(0),
             minSenseRange: minSense === 999 ? 130 : Math.round(minSense),
             maxSenseRange: maxSense === 0 ? 130 : Math.round(maxSense),
+            oldestAge: Math.round(oldestAge / 60), // in seconds
           });
         }
       }
@@ -154,8 +157,8 @@ async function run() {
 
   // Population timeline
   console.log('--- Population Timeline ---');
-  console.log('  tick   | pop  | food | season     | gen | species | shr | mat | sexB | wall | corner | brain(a/min/max) | vis(a/min/max)');
-  console.log('  -------|------|------|------------|-----|---------|-----|-----|------|------|--------|-----------------|---------------');
+  console.log('  tick   | pop  | food | season     | gen | species | shr | mat | sexB | wall | corner | oldest | brain(a/min/max) | vis(a/min/max)');
+  console.log('  -------|------|------|------------|-----|---------|-----|-----|------|------|--------|--------|-----------------|---------------');
   for (const s of samples) {
     const sp = s.seasonPhase;
     const season = sp > 0.75 ? 'summer' : sp > 0.5 ? 'spring' : sp > 0.25 ? 'autumn' : 'winter';
@@ -164,6 +167,7 @@ async function run() {
       `${season.padEnd(10)} | ${String(s.maxGen).padStart(3)} | ${String(s.species).padStart(7)} | ` +
       `${String(s.sharingCount).padStart(3)} | ${String(s.mateWillingCount).padStart(3)} | ` +
       `${String(s.sexualBirths).padStart(4)} | ${String(s.wallCount).padStart(4)} | ${String(s.cornerCount).padStart(6)} | ` +
+      `${String(s.oldestAge).padStart(4)}s | ` +
       `${s.avgBrainSize}/${s.minBrainSize}/${s.maxBrainSize}`.padEnd(17) + '| ' +
       `${s.avgSenseRange}/${s.minSenseRange}/${s.maxSenseRange}`
     );
@@ -207,6 +211,10 @@ async function run() {
     const spStr = finalSample.speciesDetail.map(s => `${s.name}(${s.count})`).join(' ');
     console.log(`  Species breakdown: ${spStr}`);
   }
+  const oldestAges = samples.map(s => s.oldestAge);
+  const maxOldest = Math.max(...oldestAges);
+  const avgOldest = (oldestAges.reduce((a, b) => a + b, 0) / oldestAges.length).toFixed(1);
+  console.log(`  Oldest creature: max=${maxOldest}s, avg=${avgOldest}s`);
   console.log(`  Total births: ${finalSample.births}`);
   console.log(`  Sexual births: ${finalSample.sexualBirths}`);
   console.log(`  Total deaths: ${finalSample.deaths}`);
