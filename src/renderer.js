@@ -228,7 +228,7 @@ class Renderer {
         // Vision range
         ctx.strokeStyle = 'rgba(200, 200, 255, 0.06)';
         ctx.lineWidth = 0.5; ctx.setLineDash([4, 6]);
-        ctx.beginPath(); ctx.arc(c.pos.x, c.pos.y, CFG.VISION_RANGE, 0, 6.283); ctx.stroke();
+        ctx.beginPath(); ctx.arc(c.pos.x, c.pos.y, c.genes.senseRange, 0, 6.283); ctx.stroke();
         ctx.setLineDash([]);
 
         // Attention lines
@@ -288,9 +288,11 @@ class Renderer {
         hasAny = true;
         const intensity = Math.min(v / CFG.PH_MAX_VIZ, 1);
         const a = intensity * 0.45;
-        pixels[pi] = 140;     // R - warm amber
-        pixels[pi + 1] = 120; // G
-        pixels[pi + 2] = 60;  // B
+        // Color by dominant species in this cell
+        const rgb = PH_SPECIES_RGB[phGrid.dominantSpecies(i)];
+        pixels[pi] = rgb[0];
+        pixels[pi + 1] = rgb[1];
+        pixels[pi + 2] = rgb[2];
         pixels[pi + 3] = Math.round(a * 255);
       } else {
         pixels[pi] = 0; pixels[pi + 1] = 0; pixels[pi + 2] = 0; pixels[pi + 3] = 0;
@@ -447,7 +449,8 @@ function renderBrain(canvas, brain) {
   const memStart = ni - CFG.BRAIN_RECURRENT;
   const sigInputStart = 7, sigInputEnd = 7 + CFG.SIGNAL_CHANNELS * 3; // signal input range
   const obsInputStart = 19, obsInputEnd = 22; // obstacle input range
-  const phInputStart = 22, phInputEnd = 25; // pheromone input range
+  const kinPhStart = 22, kinPhEnd = 25;  // kin pheromone input range
+  const forPhStart = 25, forPhEnd = 28;  // foreign pheromone input range
   const sigOutputStart = 2; // signal output range starts at index 2
 
   function signalChannelColor(ch, alpha) {
@@ -457,7 +460,8 @@ function renderBrain(canvas, brain) {
 
   function getInputColor(i, av) {
     if (i >= memStart) return `rgba(220, 160, 60, ${Math.max(av, 0.15) * 0.85})`;
-    if (i >= phInputStart && i < phInputEnd) return `rgba(160, 140, 70, ${Math.max(av, 0.15) * 0.85})`;
+    if (i >= kinPhStart && i < kinPhEnd) return `rgba(160, 140, 70, ${Math.max(av, 0.15) * 0.85})`;
+    if (i >= forPhStart && i < forPhEnd) return `rgba(130, 90, 160, ${Math.max(av, 0.15) * 0.85})`;
     if (i >= obsInputStart && i < obsInputEnd) return `rgba(120, 140, 180, ${Math.max(av, 0.15) * 0.85})`;
     if (i >= sigInputStart && i < sigInputEnd) {
       const ch = Math.floor((i - sigInputStart) / 3);
@@ -479,7 +483,8 @@ function renderBrain(canvas, brain) {
 
   function getStrokeColor(i, layer) {
     if (layer === 0 && i >= memStart) return 'rgba(180, 140, 50, 0.4)';
-    if (layer === 0 && i >= phInputStart && i < phInputEnd) return 'rgba(140, 120, 60, 0.4)';
+    if (layer === 0 && i >= kinPhStart && i < kinPhEnd) return 'rgba(140, 120, 60, 0.4)';
+    if (layer === 0 && i >= forPhStart && i < forPhEnd) return 'rgba(110, 75, 140, 0.4)';
     if (layer === 0 && i >= obsInputStart && i < obsInputEnd) return 'rgba(100, 120, 160, 0.4)';
     if (layer === 0 && i >= sigInputStart && i < sigInputEnd) {
       const ch = Math.floor((i - sigInputStart) / 3);
@@ -514,7 +519,8 @@ function renderBrain(canvas, brain) {
   ctx.textAlign = 'right';
   for (let i = 0; i < ni; i++) {
     if (i >= memStart) ctx.fillStyle = 'rgba(220, 160, 60, 0.6)';
-    else if (i >= phInputStart && i < phInputEnd) ctx.fillStyle = 'rgba(160, 140, 70, 0.6)';
+    else if (i >= kinPhStart && i < kinPhEnd) ctx.fillStyle = 'rgba(160, 140, 70, 0.6)';
+    else if (i >= forPhStart && i < forPhEnd) ctx.fillStyle = 'rgba(130, 90, 160, 0.6)';
     else if (i >= obsInputStart && i < obsInputEnd) ctx.fillStyle = 'rgba(120, 140, 180, 0.6)';
     else if (i >= sigInputStart && i < sigInputEnd) {
       const ch = Math.floor((i - sigInputStart) / 3);

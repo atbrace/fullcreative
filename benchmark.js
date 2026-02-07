@@ -86,6 +86,7 @@ async function run() {
           let sharingCount = 0, mateWillingCount = 0;
           let totalShareOut = 0, totalMateOut = 0;
           let totalBrainSize = 0, minBrain = 99, maxBrain = 0;
+          let totalSenseRange = 0, minSense = 999, maxSense = 0;
           for (let j = 0; j < w.creatures.length; j++) {
             const c = w.creatures[j];
             totalShareOut += c.shareOut;
@@ -96,6 +97,10 @@ async function run() {
             totalBrainSize += bs;
             if (bs < minBrain) minBrain = bs;
             if (bs > maxBrain) maxBrain = bs;
+            const sr = c.genes.senseRange || 130;
+            totalSenseRange += sr;
+            if (sr < minSense) minSense = sr;
+            if (sr > maxSense) maxSense = sr;
           }
           const n = w.creatures.length || 1;
 
@@ -126,6 +131,9 @@ async function run() {
             avgBrainSize: +(totalBrainSize / n).toFixed(1),
             minBrainSize: minBrain,
             maxBrainSize: maxBrain,
+            avgSenseRange: +(totalSenseRange / n).toFixed(0),
+            minSenseRange: minSense === 999 ? 130 : Math.round(minSense),
+            maxSenseRange: maxSense === 0 ? 130 : Math.round(maxSense),
           });
         }
       }
@@ -146,8 +154,8 @@ async function run() {
 
   // Population timeline
   console.log('--- Population Timeline ---');
-  console.log('  tick   | pop  | food | season     | gen | species | shr | mat | sexB | wall | corner | brain(avg/min/max)');
-  console.log('  -------|------|------|------------|-----|---------|-----|-----|------|------|--------|------------------');
+  console.log('  tick   | pop  | food | season     | gen | species | shr | mat | sexB | wall | corner | brain(a/min/max) | vis(a/min/max)');
+  console.log('  -------|------|------|------------|-----|---------|-----|-----|------|------|--------|-----------------|---------------');
   for (const s of samples) {
     const sp = s.seasonPhase;
     const season = sp > 0.75 ? 'summer' : sp > 0.5 ? 'spring' : sp > 0.25 ? 'autumn' : 'winter';
@@ -156,7 +164,8 @@ async function run() {
       `${season.padEnd(10)} | ${String(s.maxGen).padStart(3)} | ${String(s.species).padStart(7)} | ` +
       `${String(s.sharingCount).padStart(3)} | ${String(s.mateWillingCount).padStart(3)} | ` +
       `${String(s.sexualBirths).padStart(4)} | ${String(s.wallCount).padStart(4)} | ${String(s.cornerCount).padStart(6)} | ` +
-      `${s.avgBrainSize}/${s.minBrainSize}/${s.maxBrainSize}`
+      `${s.avgBrainSize}/${s.minBrainSize}/${s.maxBrainSize}`.padEnd(17) + '| ' +
+      `${s.avgSenseRange}/${s.minSenseRange}/${s.maxSenseRange}`
     );
   }
 
@@ -219,6 +228,14 @@ async function run() {
   const finalAvgBrain = samples[samples.length - 1].avgBrainSize;
   console.log(`  Brain size: overall avg=${avgBrainOverall}, range=[${globalMinBrain}, ${globalMaxBrain}]`);
   console.log(`  Final avg brain size: ${finalAvgBrain}`);
+
+  // Sense range metrics
+  const avgSenseOverall = (samples.reduce((a, s) => a + s.avgSenseRange, 0) / samples.length).toFixed(0);
+  const globalMinSense = Math.min(...samples.map(s => s.minSenseRange));
+  const globalMaxSense = Math.max(...samples.map(s => s.maxSenseRange));
+  const finalAvgSense = samples[samples.length - 1].avgSenseRange;
+  console.log(`  Sense range: overall avg=${avgSenseOverall}, range=[${globalMinSense}, ${globalMaxSense}]`);
+  console.log(`  Final avg sense range: ${finalAvgSense}`);
 
   // Health checks
   console.log('\n--- Health Checks ---');

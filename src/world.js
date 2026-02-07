@@ -171,8 +171,8 @@ class World {
       c.think(inp);
       c.move(this.w, this.h, this.obstacles, this.currents);
 
-      // Deposit pheromone at current position
-      this.phGrid.deposit(c.pos.x, c.pos.y, CFG.PH_DEPOSIT);
+      // Deposit species-scented pheromone at current position
+      this.phGrid.deposit(c.pos.x, c.pos.y, CFG.PH_DEPOSIT, Math.floor(c.genes.hue / 30) % 12);
 
       // Energy sharing
       if (c.shareOut > 0.1 && c._ncRef && c._ncRef.alive && c._ncDist < CFG.SHARE_RANGE) {
@@ -259,7 +259,7 @@ class World {
     if (this.selected && !this.selected.alive) this.selected = null;
 
     // Population floor - prevent extinction spirals
-    const MIN_POP = 18;
+    const MIN_POP = 21;
     if (this.creatures.length < MIN_POP) {
       const needed = MIN_POP + 15 - this.creatures.length;
       // Sort survivors by energy - best adapted get to seed offspring
@@ -282,6 +282,7 @@ class World {
             size: clamp(parent.genes.size + rand(-0.12, 0.12), 0.5, 2.0),
             speedGene: clamp(parent.genes.speedGene + rand(-0.12, 0.12), 0.5, 2.0),
             brainSize: childBrainSize,
+            senseRange: clamp(parent.genes.senseRange + rand(-CFG.SENSE_MUTATION * 2, CFG.SENSE_MUTATION * 2), CFG.SENSE_RANGE_MIN, CFG.SENSE_RANGE_MAX),
           };
           const brain = parent.brain.resized(childBrainSize);
           brain.mutate(CFG.MUTATION_RATE * 1.5, CFG.MUTATION_AMOUNT * 1.5);

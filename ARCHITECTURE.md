@@ -49,7 +49,7 @@ HTML structure + CSS only. Contains:
 Recurrent neural network. `forward(sensory)` appends memory to sensory inputs,
 computes hidden+output activations, then feeds hidden[0..3] back as memory.
 Stores `lastInput`, `lastHidden`, `lastOutput` for the inspector.
-- Architecture: 29 inputs (25 sensory + 4 recurrent), 4-20 hidden (tanh, evolvable), 7 outputs (tanh)
+- Architecture: 32 inputs (28 sensory + 4 recurrent), 4-20 hidden (tanh, evolvable), 7 outputs (tanh)
 - Default hidden size: 12. Evolved via `genes.brainSize` (range CFG.BRAIN_HIDDEN_MIN to CFG.BRAIN_HIDDEN_MAX)
 - Weights: `wih` (input-hidden), `who` (hidden-output), `bh`, `bo` (biases)
 - `memory`: Float32Array(4) - recurrent state, zeroed in cloned/resized children
@@ -67,15 +67,17 @@ Small data classes grouped together:
 - **CurrentZone**: Drift force zone. `pos` + `angle` + `strength` + `radius`. Slowly drifts and rotates via `drift()`.
 
 ### src/pheromones.js
-Chemical trail system. Low-resolution grid (~20px cells) covering the world.
-- `data`: Float32Array - current pheromone concentrations per cell
-- `buf`: Float32Array - double-buffer for diffusion (avoids read-write conflicts)
+Species-scented chemical trail system. Low-resolution grid (~20px cells) with 12 species layers.
+- `data`: Float32Array - total pheromone per cell (sum of species layers)
+- `speciesData`: Float32Array(n * 12) - per-species pheromone concentrations
+- `speciesBuf`: Float32Array(n * 12) - double-buffer for species diffusion
 - `mask`: Uint8Array - obstacle mask (1 = blocked, prevents diffusion through rocks)
-- `deposit(x, y, amount)`: Add pheromone at world position
-- `diffuseAndDecay()`: 4-neighbor diffusion + exponential decay. Called every 4 ticks.
-- `gradient(x, y)`: Returns { dx, dy, val } - gradient direction and local intensity
+- `deposit(x, y, amount, bucket)`: Add pheromone at world position to specific species layer
+- `diffuseAndDecay()`: 4-neighbor diffusion + decay on all 12 species layers. Reconstructs total. Called every 4 ticks.
+- `speciesGradient(x, y, bucket)`: Returns { kinDx, kinDy, kinVal, forDx, forDy, forVal } - kin and foreign gradient directions and intensities. Foreign = total - kin.
+- `dominantSpecies(idx)`: Returns bucket with highest concentration at cell (for rendering)
 - `buildMask(obstacles)`: Pre-computes which cells are inside obstacle circles
-- `canvas`/`imgData`: Offscreen rendering surface for pheromone overlay visualization
+- `canvas`/`imgData`: Offscreen rendering surface for species-colored pheromone overlay
 
 ### src/species.js
 Species identification and population tracking.
@@ -99,13 +101,13 @@ Ecosystem narrative event detection and display.
 
 ### src/creature.js
 The main entity. Key methods:
-- `perceive(foodGrid, creatureGrid, obstacles, phGrid)`: Queries spatial grids for nearest food, nearest creature, nearest signaler per channel, nearest obstacle surface, and pheromone gradient. Returns 25-float sensory array. Also stores `_nfPos`, `_ncPos` for viz, `_ncRef`/`_ncDist` for sharing.
+- `perceive(foodGrid, creatureGrid, obstacles, phGrid)`: Queries spatial grids for nearest food, nearest creature, nearest signaler per channel, nearest obstacle surface, and species-scented pheromone gradients (kin + foreign). Returns 28-float sensory array. Uses `genes.senseRange` for perception radius. Also stores `_nfPos`, `_ncPos` for viz, `_ncRef`/`_ncDist` for sharing.
 - `think(inputs)`: Runs brain forward pass, sets heading, speed, 3 signals, shareOut, mateOut.
-- `move(W, H, obstacles, currents)`: Pushes body trail, updates position, applies current zone drift, bounces walls with random perturbation, soft wall repulsion, collides with obstacles (push-out + heading reflection), deducts metabolism (including brain size cost).
+- `move(W, H, obstacles, currents)`: Pushes body trail, updates position, applies current zone drift, bounces walls with random perturbation, soft wall repulsion, collides with obstacles (push-out + heading reflection), deducts metabolism (including brain size cost and sensory range cost).
 - `reproduce(mate)`: Creates child with possible brain size mutation (+/-1, 8% chance). If mate provided, uses Brain.crossover at child's brain size for sexual reproduction. Otherwise asexual (clone + resize if mutated + mutate). Mate pays 15% energy cost.
 - `static _mutateBrainSize(parentSize)`: Returns parent size with 8% chance of +/-1, clamped to [4, 20].
 
-**Brain inputs (29 = 25 sensory + 4 recurrent):**
+**Brain inputs (32 = 28 sensory + 4 recurrent):**
 | Index | Name   | Description                              |
 |-------|--------|------------------------------------------|
 | 0     | fd.s   | sin(relative angle to nearest food)      |
@@ -130,13 +132,16 @@ The main entity. Key methods:
 | 19    | ob.s   | sin(relative angle to nearest obstacle)  |
 | 20    | ob.c   | cos(relative angle to nearest obstacle)  |
 | 21    | ob.d   | surface distance to nearest obstacle(0-1)|
-| 22    | ph.s   | sin(relative angle to pheromone gradient) |
-| 23    | ph.c   | cos(relative angle to pheromone gradient) |
-| 24    | ph.v   | local pheromone intensity (0-1)           |
-| 25    | m.0    | recurrent memory 0 (from hidden[0])      |
-| 26    | m.1    | recurrent memory 1 (from hidden[1])      |
-| 27    | m.2    | recurrent memory 2 (from hidden[2])      |
-| 28    | m.3    | recurrent memory 3 (from hidden[3])      |
+| 22    | kp.s   | sin(relative angle to kin pheromone gradient)     |
+| 23    | kp.c   | cos(relative angle to kin pheromone gradient)     |
+| 24    | kp.v   | kin pheromone local intensity (0-1)               |
+| 25    | fp.s   | sin(relative angle to foreign pheromone gradient) |
+| 26    | fp.c   | cos(relative angle to foreign pheromone gradient) |
+| 27    | fp.v   | foreign pheromone local intensity (0-1)           |
+| 28    | m.0    | recurrent memory 0 (from hidden[0])      |
+| 29    | m.1    | recurrent memory 1 (from hidden[1])      |
+| 30    | m.2    | recurrent memory 2 (from hidden[2])      |
+| 31    | m.3    | recurrent memory 3 (from hidden[3])      |
 
 **Brain outputs (7):**
 | Index | Name   | Description                       |
@@ -163,8 +168,9 @@ The main entity. Key methods:
 | 7-15         | Channel hue | Signal channels  |
 | 16-18        | Blue/Red    | Energy, bias, kin|
 | 19-21        | Slate blue  | Obstacle inputs  |
-| 22-24        | Warm amber  | Pheromone inputs |
-| 25-28        | Orange      | Recurrent memory |
+| 22-24        | Warm amber  | Kin pheromone    |
+| 25-27        | Purple      | Foreign pheromone|
+| 28-31        | Orange      | Recurrent memory |
 | Output 0-1   | Blue/Red    | Turn, speed      |
 | Output 2-4   | Channel hue | Signal channels  |
 | Output 5     | Green       | Energy sharing   |

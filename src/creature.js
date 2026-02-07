@@ -32,6 +32,7 @@ class Creature {
       size: rand(0.7, 1.4),
       speedGene: rand(0.7, 1.3),
       brainSize: CFG.BRAIN_HIDDEN,
+      senseRange: CFG.SENSE_RANGE_DEFAULT,
     };
     return new Creature(x, y, genes, new Brain(CFG.BRAIN_INPUTS, CFG.BRAIN_HIDDEN, CFG.BRAIN_OUTPUTS).randomize(), 0);
   }
@@ -46,7 +47,7 @@ class Creature {
   }
 
   perceive(foodGrid, creatureGrid, obstacles, phGrid) {
-    const vr = CFG.VISION_RANGE;
+    const vr = this.genes.senseRange;
     const nSensory = CFG.BRAIN_INPUTS - CFG.BRAIN_RECURRENT;
     const inp = new Float32Array(nSensory);
     this._nfPos = null;
@@ -126,15 +127,25 @@ class Creature {
       inp[19] = Math.sin(ra); inp[20] = Math.cos(ra); inp[21] = clamp(boDist / vr, 0, 1);
     } else { inp[21] = 1; }
 
-    // --- Pheromone gradient ---
-    const phg = phGrid.gradient(this.pos.x, this.pos.y);
-    const phMag = Math.sqrt(phg.dx * phg.dx + phg.dy * phg.dy);
-    if (phMag > 0.001) {
-      const phAngle = Math.atan2(phg.dy, phg.dx);
-      const ra = wrapAngle(phAngle - this.heading);
+    // --- Species-scented pheromone gradient ---
+    const myBucket = Math.floor(this.genes.hue / 30) % 12;
+    const phg = phGrid.speciesGradient(this.pos.x, this.pos.y, myBucket);
+    // Kin pheromone gradient
+    const kinMag = Math.sqrt(phg.kinDx * phg.kinDx + phg.kinDy * phg.kinDy);
+    if (kinMag > 0.001) {
+      const kinAngle = Math.atan2(phg.kinDy, phg.kinDx);
+      const ra = wrapAngle(kinAngle - this.heading);
       inp[22] = Math.sin(ra); inp[23] = Math.cos(ra);
     }
-    inp[24] = clamp(phg.val / CFG.PH_MAX_VIZ, 0, 1);
+    inp[24] = clamp(phg.kinVal / CFG.PH_MAX_VIZ, 0, 1);
+    // Foreign pheromone gradient
+    const forMag = Math.sqrt(phg.forDx * phg.forDx + phg.forDy * phg.forDy);
+    if (forMag > 0.001) {
+      const forAngle = Math.atan2(phg.forDy, phg.forDx);
+      const ra = wrapAngle(forAngle - this.heading);
+      inp[25] = Math.sin(ra); inp[26] = Math.cos(ra);
+    }
+    inp[27] = clamp(phg.forVal / CFG.PH_MAX_VIZ, 0, 1);
 
     inp[16] = clamp(this.energy / CFG.ENERGY_MAX, 0, 1);
     inp[17] = 1; // bias
@@ -217,7 +228,8 @@ class Creature {
 
     const sizeCost = Math.pow(this.genes.size, CFG.METABOLISM_SIZE_EXP);
     const brainCost = this.genes.brainSize * CFG.METABOLISM_BRAIN_FACTOR;
-    this.energy -= (CFG.METABOLISM_BASE * sizeCost + this.speed * CFG.METABOLISM_SPEED_FACTOR + brainCost);
+    const senseCost = this.genes.senseRange * CFG.METABOLISM_SENSE_FACTOR;
+    this.energy -= (CFG.METABOLISM_BASE * sizeCost + this.speed * CFG.METABOLISM_SPEED_FACTOR + brainCost + senseCost);
     this.age++;
   }
 
@@ -233,6 +245,7 @@ class Creature {
         size: clamp((this.genes.size + mate.genes.size) / 2 + rand(-0.08, 0.08), 0.5, 2.0),
         speedGene: clamp((this.genes.speedGene + mate.genes.speedGene) / 2 + rand(-0.08, 0.08), 0.5, 2.0),
         brainSize: childBrainSize,
+        senseRange: clamp((this.genes.senseRange + mate.genes.senseRange) / 2 + rand(-CFG.SENSE_MUTATION, CFG.SENSE_MUTATION), CFG.SENSE_RANGE_MIN, CFG.SENSE_RANGE_MAX),
       };
       cb = Brain.crossover(this.brain, mate.brain, childBrainSize);
       cb.mutate(CFG.MUTATION_RATE, CFG.MUTATION_AMOUNT);
@@ -246,6 +259,7 @@ class Creature {
         size: clamp(this.genes.size + rand(-0.08, 0.08), 0.5, 2.0),
         speedGene: clamp(this.genes.speedGene + rand(-0.08, 0.08), 0.5, 2.0),
         brainSize: childBrainSize,
+        senseRange: clamp(this.genes.senseRange + rand(-CFG.SENSE_MUTATION, CFG.SENSE_MUTATION), CFG.SENSE_RANGE_MIN, CFG.SENSE_RANGE_MAX),
       };
       cb = this.brain.resized(childBrainSize);
       cb.mutate(CFG.MUTATION_RATE, CFG.MUTATION_AMOUNT);

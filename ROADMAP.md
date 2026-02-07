@@ -163,7 +163,29 @@ and understanding it.
 ### Phase 5: Deep Evolution
 *Let evolution reshape not just behavior but biology.*
 
-**Remaining:** See GitHub Issues labeled `phase-5`.
+The bridge from Phase 4: evolvable brain size proved that creatures can evolve
+different biological parameters, not just weight values. Phase 5 extends this
+to create genuine strategic diversity - the point where "species" stops being a
+hue bucket and starts meaning "a creature with a different survival strategy."
+
+The core diagnosis: after 18K ticks of evolution, creatures forage and little
+else. Signals are noise, pheromone-following hasn't emerged, social behavior is
+random. The infrastructure is rich but selection pressure is weak. Phase 5 must
+create pressure for differentiation, not just more evolvable parameters.
+
+Three pillars:
+1. **Kin recognition via pheromones** - species-scented trails create tribe-like
+   territory, making signals and sharing meaningful within kin groups
+2. **Evolvable sensory range** - vision/detection tradeoff creates scout vs.
+   territorial archetypes
+3. **Niche food types** - dietary specialization creates ecological roles and
+   reduces competitive exclusion
+
+Phase 5 is complete when: a viewer can watch the simulation and observe that
+different species genuinely behave differently - not just different colors doing
+the same thing.
+
+**Open:** See GitHub Issues labeled `phase-5`.
 
 ### Phase 6: The Long Dream (far future)
 *Aspirational features. May never be built. That's fine.*
@@ -542,3 +564,50 @@ base metabolism 0.12). This is enough to create real selection pressure without
 making large brains instantly unviable. The 8% mutation rate means ~1 in 12
 births change brain size, giving evolution enough variance to explore without
 being too noisy. Phase 4: Spectator Intelligence is now complete.
+
+### Session 13 - 2026-02-06
+**Built:** Species-scented pheromones (#42) and evolvable sensory range (#18) -
+first two Phase 5 features.
+
+1. Species-scented pheromones: Transformed the single-layer pheromone grid into
+   a 12-layer system (one per species hue bucket). Each creature deposits to its
+   own species layer. Brain now perceives kin trail and foreign trail separately:
+   6 pheromone inputs (kp.s, kp.c, kp.v for kin gradient direction and intensity;
+   fp.s, fp.c, fp.v for foreign gradient direction and intensity) replacing the
+   previous 3 undifferentiated inputs. Brain grew from 29-12-7 to 32-12-7 (28
+   sensory + 4 recurrent). Pheromone overlay now colored by dominant species hue
+   per cell - territories are immediately visible as colored regions on screen.
+   Diffusion operates independently on all 12 species layers. Foreign gradient
+   computed efficiently as total gradient minus kin gradient.
+
+2. Evolvable sensory range: New gene `senseRange` (range 60-200, default 130).
+   Wider sensing costs more metabolism (senseRange * 0.0002 per tick). Mutates
+   +/-5 per reproduction, averaged between parents for sexual reproduction.
+   Creates genuine tradeoff: wide-range "scouts" can detect distant food and kin
+   trails but burn more energy, while narrow-range "homebodies" are cheaper to
+   run but operate locally. Vision range circle in inspector now shows creature's
+   actual evolved range. No new brain inputs - distance normalization naturally
+   calibrates to each creature's range.
+
+3. Population floor bumped from 18 to 21 (reseed target 36) to compensate for
+   the larger 32-input brain search space. Sense metabolism factor tuned from
+   0.0003 to 0.0002 after initial benchmark showed evolution suppression.
+
+**Benchmark (2 trials x 18000 ticks):** All health checks PASS both runs.
+- Trial 1: gen 23, pop avg 29.9, 218 births (6 sexual), sense range [105, 170]
+- Trial 2: gen 27, pop avg 37.7, 815 births (99 sexual!), sense range [102, 151]
+  - Species consolidated to 2 (Rixa 23, Jera 15) - speciation dynamics working
+  - Brain size evolved upward (avg 13.2, range [10, 15]) - cognitive investment
+  - Sharing output dropped to 0.235 - selfish strategy evolving
+  - Mate output rose to 0.600 - mating behavior genuinely evolving
+
+**Learned:** Species-scented pheromones + species-colored rendering is the most
+visually impactful change since the stacked population chart. Watching colored
+territory regions form, overlap, and recede tells an immediate story about
+species competition - no explanation needed. The combination of larger brains
+evolving upward and sensory range staying near default suggests that cognitive
+complexity (more hidden neurons) provides more fitness benefit than wider
+perception at current environmental complexity. The second benchmark trial
+produced the richest dynamics yet: 99 sexual births, 2 dominant species, brain
+size evolution, and mating behavior emerging. Phase 5 is now 66% complete
+(2 of 3 items, #44 niche food types remains).
