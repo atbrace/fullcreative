@@ -14,11 +14,64 @@
   const brainCanvas = document.getElementById('brain-canvas');
 
   const renderer = new Renderer(trailCanvas, mainCanvas);
-  const world = new World(renderer.w, renderer.h);
+  let world = new World(renderer.w, renderer.h);
   window.__world = world; // debug accessor
   const audio = new AudioEngine();
 
   let started = false, showHelp = true, simSpeed = 1, frameCount = 0;
+
+  const saveControlsEl = document.getElementById('save-controls');
+  const fileInputEl = document.getElementById('file-input');
+
+  // --- Save ecosystem ---
+  function saveEcosystem() {
+    if (!started) return;
+    const wasPaused = world.paused;
+    world.paused = true;
+    const data = world.toJSON();
+    const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    const t = Math.floor(world.tick / 60);
+    const min = Math.floor(t / 60), sec = (t % 60).toString().padStart(2, '0');
+    a.download = 'emergence-gen' + world.maxGen + '-' + min + 'm' + sec + 's.json';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    world.paused = wasPaused;
+  }
+
+  // --- Load ecosystem ---
+  function loadEcosystem(file) {
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      try {
+        const data = JSON.parse(e.target.result);
+        if (!data.version || !data.creatures) {
+          console.error('Invalid ecosystem file');
+          return;
+        }
+        world.paused = true;
+        world.loadFromJSON(data);
+        window.__world = world;
+        // Clear trail canvas to avoid ghosting from old positions
+        const tctx = renderer.tctx;
+        const [r, g, b] = CFG.BG;
+        tctx.fillStyle = `rgb(${r},${g},${b})`;
+        tctx.fillRect(0, 0, renderer.w, renderer.h);
+        // Reset camera
+        renderer.cam.x = renderer.w / 2; renderer.cam.y = renderer.h / 2; renderer.cam.zoom = 1;
+        renderer.camTarget.x = renderer.w / 2; renderer.camTarget.y = renderer.h / 2; renderer.camTarget.zoom = 1;
+        world.paused = false;
+        inspEl.classList.remove('visible');
+      } catch (err) {
+        console.error('Failed to load ecosystem:', err);
+      }
+    };
+    reader.readAsText(file);
+  }
 
   // Silent audio proxy for time-lapse speeds - keeps drone, mutes events
   const timelapsAudio = {
@@ -36,6 +89,7 @@
     speedEl.classList.add('visible');
     helpEl.classList.add('visible');
     eventLogEl.classList.add('visible');
+    saveControlsEl.classList.add('visible');
     audio.start();
     world.seed();
     setTimeout(() => { if (showHelp) { showHelp = false; helpEl.classList.remove('visible'); } }, 10000);
@@ -49,6 +103,14 @@
   document.querySelectorAll('.spd-btn').forEach(b =>
     b.addEventListener('click', () => setSpeed(parseInt(b.dataset.speed)))
   );
+
+  // --- Save/Load buttons ---
+  document.getElementById('btn-save').addEventListener('click', saveEcosystem);
+  document.getElementById('btn-load').addEventListener('click', () => fileInputEl.click());
+  fileInputEl.addEventListener('change', (e) => {
+    if (e.target.files.length > 0) loadEcosystem(e.target.files[0]);
+    e.target.value = ''; // allow re-loading same file
+  });
 
   // --- Keyboard ---
   document.addEventListener('keydown', (e) => {
@@ -65,6 +127,8 @@
     else if (k === '4') { setSpeed(4); }
     else if (k === 't') { setSpeed(simSpeed === 16 ? 32 : 16); }
     else if (k === 'e') { renderer.showTraits = !renderer.showTraits; }
+    else if (k === 's') { saveEcosystem(); }
+    else if (k === 'l') { fileInputEl.click(); }
     else if (k === 'escape') { world.selected = null; inspEl.classList.remove('visible'); }
   });
 
@@ -131,6 +195,8 @@
     document.getElementById('i-vis').textContent = Math.round(c.genes.senseRange);
     const phDepEl = document.getElementById('i-scent');
     if (phDepEl) phDepEl.textContent = c.genes.phDeposit.toFixed(2);
+    const phdEl = document.getElementById('i-phd');
+    if (phdEl) phdEl.textContent = c.phDepOut.toFixed(2);
     document.getElementById('i-brain-lbl').textContent = 'NEURAL NETWORK ' + c.brain.ni + '-' + c.brain.nh + '-' + c.brain.no;
 
     renderBrain(brainCanvas, c.brain);

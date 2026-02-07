@@ -278,6 +278,26 @@ class Renderer {
       ctx.fillStyle = `hsla(${hue}, 90%, ${Math.min(light + 35, 95)}%, 0.85)`;
       ctx.beginPath(); ctx.arc(hx, hy, eyeR, 0, 6.283); ctx.fill();
 
+      // Behavioral mode indicator (subtle arc behind heading)
+      if (c._mode > 0) {
+        const modeColors = [
+          null,                          // 0: idle
+          'rgba(100, 230, 160, 0.18)',   // 1: foraging - green
+          'rgba(255, 120, 80, 0.22)',    // 2: hunting - red-orange
+          'rgba(255, 220, 80, 0.20)',    // 3: fleeing - yellow
+          'rgba(100, 220, 160, 0.18)',   // 4: sharing - teal-green
+          'rgba(240, 140, 200, 0.18)',   // 5: mating - pink
+        ];
+        const mcolor = modeColors[c._mode];
+        const mRad = rad * 2.2;
+        const arcSpan = 0.6; // radians of arc width
+        ctx.strokeStyle = mcolor;
+        ctx.lineWidth = 1.2;
+        ctx.beginPath();
+        ctx.arc(c.pos.x, c.pos.y, mRad, c.heading - arcSpan, c.heading + arcSpan);
+        ctx.stroke();
+      }
+
       // --- Selection decorations ---
       if (world.selected === c) {
         ctx.globalCompositeOperation = 'source-over';
@@ -614,6 +634,7 @@ function renderBrain(canvas, brain) {
     }
     if (i === 5) return `rgba(100, 200, 120, ${Math.max(av, 0.15) * 0.85})`; // share
     if (i === 6) return `rgba(220, 120, 170, ${Math.max(av, 0.15) * 0.85})`; // mate
+    if (i === 7) return `rgba(200, 160, 80, ${Math.max(av, 0.15) * 0.85})`; // pheromone
     return v >= 0 ? `rgba(70, 150, 255, ${av * 0.85})` : `rgba(255, 80, 100, ${av * 0.85})`;
   }
 
@@ -632,6 +653,7 @@ function renderBrain(canvas, brain) {
     }
     if (layer === 2 && i === 5) return 'rgba(80, 180, 100, 0.4)';
     if (layer === 2 && i === 6) return 'rgba(200, 100, 150, 0.4)';
+    if (layer === 2 && i === 7) return 'rgba(180, 140, 60, 0.4)';
     return 'rgba(90, 90, 140, 0.35)';
   }
 
@@ -671,6 +693,7 @@ function renderBrain(canvas, brain) {
     if (i >= sigOutputStart && i < sigOutputStart + CFG.SIGNAL_CHANNELS) ctx.fillStyle = signalChannelColor(i - sigOutputStart, 0.55);
     else if (i === 5) ctx.fillStyle = 'rgba(100, 200, 120, 0.55)';
     else if (i === 6) ctx.fillStyle = 'rgba(220, 120, 170, 0.55)';
+    else if (i === 7) ctx.fillStyle = 'rgba(200, 160, 80, 0.55)';
     else ctx.fillStyle = 'rgba(100, 100, 155, 0.55)';
     ctx.fillText(OUTPUT_LABELS[i], nodes[2][i].x + nr + 3, nodes[2][i].y + 2.5);
   }

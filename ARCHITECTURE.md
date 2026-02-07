@@ -49,7 +49,7 @@ HTML structure + CSS only. Contains:
 Recurrent neural network. `forward(sensory)` appends memory to sensory inputs,
 computes hidden+output activations, then feeds hidden[0..3] back as memory.
 Stores `lastInput`, `lastHidden`, `lastOutput` for the inspector.
-- Architecture: 32 inputs (28 sensory + 4 recurrent), 4-20 hidden (tanh, evolvable), 7 outputs (tanh)
+- Architecture: 32 inputs (28 sensory + 4 recurrent), 4-20 hidden (tanh, evolvable), 8 outputs (tanh)
 - Default hidden size: 12. Evolved via `genes.brainSize` (range CFG.BRAIN_HIDDEN_MIN to CFG.BRAIN_HIDDEN_MAX)
 - Weights: `wih` (input-hidden), `who` (hidden-output), `bh`, `bo` (biases)
 - `memory`: Float32Array(4) - recurrent state, zeroed in cloned/resized children
@@ -57,6 +57,7 @@ Stores `lastInput`, `lastHidden`, `lastOutput` for the inspector.
 - `clone()` + `mutate(rate, amount)` for reproduction
 - `resized(newNh)` - returns a new brain with adjusted hidden layer size (shared neurons keep weights, new neurons get small random init)
 - `static crossover(a, b, targetNh)` - uniform crossover that handles different-sized parents. Shared neurons (index < min) get crossover, extra neurons copy from larger parent, beyond-both neurons get random init
+- `toJSON()` / `static fromJSON(d)` - serialization for save/load
 
 ### src/entities.js
 Small data classes grouped together:
@@ -104,9 +105,10 @@ Ecosystem narrative event detection and display.
 
 ### src/creature.js
 The main entity. Key methods:
-- `perceive(foodGrid, creatureGrid, obstacles, phGrid)`: Queries spatial grids for nearest food, nearest creature, nearest signaler per channel, nearest obstacle surface, and species-scented pheromone gradients (kin + foreign). Returns 28-float sensory array. Uses `genes.senseRange` for perception radius. Also stores `_nfPos`, `_ncPos` for viz, `_ncRef`/`_ncDist` for sharing.
-- `think(inputs)`: Runs brain forward pass, sets heading, speed, 3 signals, shareOut, mateOut.
-- `move(W, H, obstacles, currents)`: Pushes body trail, updates position, applies current zone drift, bounces walls with random perturbation, soft wall repulsion, collides with obstacles (push-out + heading reflection), deducts metabolism (including brain size cost, sensory range cost, and pheromone deposition cost).
+- `perceive(foodGrid, creatureGrid, obstacles, phGrid)`: Queries spatial grids for nearest food, nearest creature, nearest signaler per channel, nearest obstacle surface, and species-scented pheromone gradients (kin + foreign). Returns 28-float sensory array. Uses `genes.senseRange` for perception radius. Also stores `_nfPos`, `_ncPos` for viz, `_ncRef`/`_ncDist`/`_ncRelSize` for sharing and mode detection.
+- `think(inputs)`: Runs brain forward pass, sets heading, speed, 3 signals, shareOut, mateOut, phDepOut. Detects behavioral mode (`_mode`: 0=idle, 1=foraging, 2=hunting, 3=fleeing, 4=sharing, 5=mating) for viz.
+- `move(W, H, obstacles, currents)`: Pushes body trail, updates position, applies current zone drift, bounces walls with random perturbation, soft wall repulsion, collides with obstacles (push-out + heading reflection), deducts metabolism (including brain size cost, sensory range cost, and brain-modulated pheromone deposition cost).
+- `toJSON()` / `static fromJSON(d)` - serialization for save/load. fromJSON handles brain output upgrades (old 7-output saves auto-upgrade to 8).
 - `reproduce(mate)`: Creates child with possible brain size mutation (+/-1, 8% chance). If mate provided, uses Brain.crossover at child's brain size for sexual reproduction. Otherwise asexual (clone + resize if mutated + mutate). Mate pays 15% energy cost.
 - `static _mutateBrainSize(parentSize)`: Returns parent size with 8% chance of +/-1, clamped to [4, 20].
 
@@ -146,7 +148,7 @@ The main entity. Key methods:
 | 30    | m.2    | recurrent memory 2 (from hidden[2])      |
 | 31    | m.3    | recurrent memory 3 (from hidden[3])      |
 
-**Brain outputs (7):**
+**Brain outputs (8):**
 | Index | Name   | Description                       |
 |-------|--------|-----------------------------------|
 | 0     | turn   | turn rate (-1 to 1)               |
@@ -156,6 +158,7 @@ The main entity. Key methods:
 | 4     | sg2    | signal channel 2 strength (0-1)   |
 | 5     | shr    | energy share intensity (0-1)      |
 | 6     | mat    | mating willingness (0-1)          |
+| 7     | phd    | pheromone deposition intensity (0-1) |
 
 **Signal channel colors (universal, not species-dependent):**
 | Channel | Hue | Color   | Viz: ring radius |
@@ -178,6 +181,7 @@ The main entity. Key methods:
 | Output 2-4   | Channel hue | Signal channels  |
 | Output 5     | Green       | Energy sharing   |
 | Output 6     | Pink        | Mating signal    |
+| Output 7     | Warm amber  | Pheromone deposit |
 
 ### src/world.js
 Simulation state and update loop. Key methods:
@@ -185,7 +189,8 @@ Simulation state and update loop. Key methods:
 - `_generateObstacles()`: 4-7 formations of 2-5 overlapping circles each. Placement rejects positions near edges, center, hotspots, other formations.
 - `_generateCurrents()`: 2-4 current zones with random position, angle, strength, and radius.
 - `_spawnFood()`: Gaussian distribution around random weighted hotspot. Retry loop rejects positions inside obstacles (up to 10 attempts).
-- `update(audio)`: **The main simulation tick.** Order: compute day/season multipliers, drift hotspots (faster in winter) + currents, diffuse pheromones (every 4 ticks), spawn food (modulated by day+season), rebuild grids, for each creature: perceive/think/move (with obstacles+currents+pheromone grid), decrement hunt cooldown, deposit pheromone (at evolvable rate), kin-only energy sharing (if shareOut > 0.1 and nearest kin within 20px), cooperative foraging bonus (if shareOut > 0.1 and cooperative kin within 50px), check eat, check predation (with kin defense bonus + hunt cooldown gate), check reproduce (with mate search if mateOut > 0.3, fallback to asexual), check death. Then cleanup dead entities, update particles, population floor check (MIN_POP=21), record population + trait history (including phDeposit), ecosystem audio state (every 60 ticks).
+- `update(audio)`: **The main simulation tick.** Order: compute day/season multipliers, drift hotspots (faster in winter) + currents, diffuse pheromones (every 4 ticks), spawn food (modulated by day+season), rebuild grids, for each creature: perceive/think/move (with obstacles+currents+pheromone grid), decrement hunt cooldown, deposit pheromone (brain-modulated: phDepOut * phDeposit gene), kin-only energy sharing (if shareOut > 0.1 and nearest kin within 20px), cooperative foraging bonus (if shareOut > 0.1 and cooperative kin within 50px), check eat, check predation (with kin defense bonus + hunt cooldown gate), check reproduce (with mate search if mateOut > 0.3, fallback to asexual), check death. Then cleanup dead entities, update particles, population floor check (MIN_POP=21), record population + trait history (including phDeposit), ecosystem audio state (every 60 ticks).
+- `toJSON()` / `loadFromJSON(data)` - full ecosystem serialization/deserialization for save/load. Includes creatures (with brain weights), food, hotspots, obstacles, currents, pheromone grid, tick counters, history.
 - `dayPhase`: Getter, returns 0-1 sine wave over DAY_PERIOD ticks.
 - `seasonPhase`: Getter, returns 0-1 sine wave over SEASON_PERIOD ticks.
 - `creatureAt(x,y)`: Hit-test for mouse selection.
@@ -200,7 +205,7 @@ LFO. Events: `birthPing()` (pentatonic sine), `eatClick()` (high sine),
 ### src/renderer.js
 Canvas drawing. Uses two canvases:
 - **Trail canvas** (behind): Semi-transparent fade with seasonal color temperature (warm amber in summer, cool blue in winter) + obstacle masking + creature position dots each frame. Creates slowly fading light trails.
-- **Main canvas** (front): Cleared each frame. Draws hotspot glows (dimmed in winter), current zone indicators (subtle glow + animated flow streaks), pheromone grid overlay (warm amber glow via offscreen canvas), obstacles (dark body + edge glow), food, creatures (body segments + signal rings + outer glow + core + heading dot + selection decorations), particles, vignette, population graph.
+- **Main canvas** (front): Cleared each frame. Draws hotspot glows (dimmed in winter), current zone indicators (subtle glow + animated flow streaks), pheromone grid overlay (warm amber glow via offscreen canvas), obstacles (dark body + edge glow), food, creatures (body segments + signal rings + behavioral mode arc + outer glow + core + heading dot + selection decorations), particles, vignette, population graph.
 - **Camera system**: `cam` and `camTarget` objects hold `{x, y, zoom}`. When a creature is selected (`world.selected`), camera targets it at 2.5x zoom. Otherwise targets world center at 1x. Smooth lerp (factor 0.06) with world-bounds clamping. Both canvases apply `translate(W/2, H/2) -> scale(zoom) -> translate(-camX, -camY)` transform around all world elements. UI layer (vignette, graphs) stays in screen space.
 - `screenToWorld(sx, sy)`: Reverse camera transform - converts screen pixel coordinates to world coordinates. Used by main.js click handler for creature selection and food/creature spawning.
 - `_renderPheromones(ctx, phGrid)`: Builds RGBA image data from pheromone grid, puts it on offscreen canvas, draws scaled up with bilinear interpolation.
@@ -212,7 +217,7 @@ Canvas drawing. Uses two canvases:
 Bootstrap IIFE. Initializes Renderer, World, AudioEngine. Wires up:
 - Overlay click to start simulation
 - Speed buttons (1x, 2x, 4x | 16x, 32x time-lapse)
-- Keyboard shortcuts (space, h, m, e=trait timeline, 1/2/4, t=time-lapse toggle, escape)
+- Keyboard shortcuts (space, h, m, e=trait timeline, 1/2/4, t=time-lapse toggle, s=save, l=load, escape)
 - Mouse click (creature inspect, shift+click add creature, empty click add food)
 - Window resize
 - Inspector update (every 12 frames)

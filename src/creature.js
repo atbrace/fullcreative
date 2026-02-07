@@ -19,12 +19,55 @@ class Creature {
     this.radius = CFG.BASE_RADIUS * this.genes.size;
     this.shareOut = 0;
     this.mateOut = 0;
+    this.phDepOut = 0;
     this.huntCooldown = 0;
     this.body = []; // trailing body positions
     this._nfPos = null; // nearest food position (for viz)
     this._ncPos = null; // nearest creature position (for viz)
     this._ncRef = null; // nearest creature reference (for sharing)
     this._ncDist = Infinity; // distance to nearest creature
+    this._ncRelSize = 1; // relative size of nearest creature
+    this._mode = 0; // behavioral mode: 0=idle, 1=foraging, 2=hunting, 3=fleeing, 4=sharing, 5=mating
+  }
+
+  toJSON() {
+    return {
+      x: this.pos.x, y: this.pos.y, heading: this.heading, speed: this.speed,
+      genes: Object.assign({}, this.genes), brain: this.brain.toJSON(),
+      generation: this.generation, energy: this.energy, age: this.age,
+      signals: Array.from(this.signals), shareOut: this.shareOut,
+      mateOut: this.mateOut, phDepOut: this.phDepOut, huntCooldown: this.huntCooldown,
+      body: this.body.map(b => ({ x: b.x, y: b.y })),
+    };
+  }
+
+  static fromJSON(d) {
+    let brain = Brain.fromJSON(d.brain);
+    // Upgrade older saves with fewer outputs to current output count
+    if (brain.no < CFG.BRAIN_OUTPUTS) {
+      const upgraded = new Brain(brain.ni, brain.nh, CFG.BRAIN_OUTPUTS);
+      // Copy shared weights
+      for (let j = 0; j < brain.nh; j++) {
+        for (let k = 0; k < brain.no; k++) upgraded.who[j * CFG.BRAIN_OUTPUTS + k] = brain.who[j * brain.no + k];
+        for (let k = brain.no; k < CFG.BRAIN_OUTPUTS; k++) upgraded.who[j * CFG.BRAIN_OUTPUTS + k] = (Math.random() - 0.5) * 0.5;
+      }
+      upgraded.wih.set(brain.wih); upgraded.bh.set(brain.bh);
+      for (let k = 0; k < brain.no; k++) upgraded.bo[k] = brain.bo[k];
+      for (let k = brain.no; k < CFG.BRAIN_OUTPUTS; k++) upgraded.bo[k] = (Math.random() - 0.5) * 0.2;
+      brain = upgraded;
+    }
+    const c = new Creature(d.x, d.y, d.genes, brain, d.generation);
+    c.heading = d.heading;
+    c.speed = d.speed;
+    c.energy = d.energy;
+    c.age = d.age;
+    c.signals.set(d.signals);
+    c.shareOut = d.shareOut;
+    c.mateOut = d.mateOut;
+    c.phDepOut = d.phDepOut || 0;
+    c.huntCooldown = d.huntCooldown;
+    c.body = d.body || [];
+    return c;
   }
 
   static createRandom(x, y) {
@@ -57,6 +100,7 @@ class Creature {
     this._ncPos = null;
     this._ncRef = null;
     this._ncDist = Infinity;
+    this._ncRelSize = 1;
 
     // --- Nearest food (diet-weighted: matched food appears closer) ---
     let bfScore = Infinity, bfRealDist = Infinity, bfAngle = 0;
@@ -86,7 +130,7 @@ class Creature {
       if (d < bcDist) {
         bcDist = d; bcAngle = Math.atan2(nc[i].pos.y - this.pos.y, nc[i].pos.x - this.pos.x);
         bcRelSize = nc[i].radius / this.radius; this._ncPos = nc[i].pos;
-        this._ncRef = nc[i]; this._ncDist = d;
+        this._ncRef = nc[i]; this._ncDist = d; this._ncRelSize = bcRelSize;
         bcHue = nc[i].genes.hue;
       }
     }
@@ -170,6 +214,23 @@ class Creature {
       this.signals[ch] = (out[2 + ch] + 1) * 0.5; // 0..1
     this.shareOut = (out[5] + 1) * 0.5; // 0..1
     this.mateOut = (out[6] + 1) * 0.5;  // 0..1
+    this.phDepOut = (out[7] + 1) * 0.5; // 0..1 - pheromone deposition intensity
+
+    // Behavioral mode detection (for viz only - no gameplay effect)
+    // Priority: mating > sharing > fleeing > hunting > foraging > idle
+    if (this.mateOut > 0.4 && this.energy > CFG.ENERGY_REPRODUCE * 0.8) {
+      this._mode = 5; // mating
+    } else if (this.shareOut > 0.3 && this._ncDist < CFG.SHARE_RANGE * 2) {
+      this._mode = 4; // sharing
+    } else if (this._ncDist < this.genes.senseRange * 0.6 && this._ncRelSize > 1.15 && this.speed > CFG.BASE_SPEED * 0.8) {
+      this._mode = 3; // fleeing
+    } else if (this._ncDist < this.genes.senseRange * 0.5 && this._ncRelSize < 0.85) {
+      this._mode = 2; // hunting
+    } else if (this._nfPos && this.speed > 0.3) {
+      this._mode = 1; // foraging
+    } else {
+      this._mode = 0; // idle/wandering
+    }
   }
 
   move(W, H, obstacles, currents) {
@@ -239,7 +300,7 @@ class Creature {
     const sizeCost = Math.pow(this.genes.size, CFG.METABOLISM_SIZE_EXP);
     const brainCost = this.genes.brainSize * CFG.METABOLISM_BRAIN_FACTOR;
     const senseCost = this.genes.senseRange * CFG.METABOLISM_SENSE_FACTOR;
-    const phCost = this.genes.phDeposit * CFG.METABOLISM_PH_FACTOR;
+    const phCost = this.phDepOut * this.genes.phDeposit * CFG.METABOLISM_PH_FACTOR;
     const agingCost = this.age > CFG.AGING_ONSET ? (this.age - CFG.AGING_ONSET) * CFG.AGING_RATE : 0;
     this.energy -= (CFG.METABOLISM_BASE * sizeCost + this.speed * CFG.METABOLISM_SPEED_FACTOR + brainCost + senseCost + phCost + agingCost);
     this.age++;

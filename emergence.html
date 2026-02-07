@@ -83,6 +83,22 @@
     margin: 2px 3px; align-self: stretch;
   }
 
+  /* --- Save/Load controls --- */
+  #save-controls {
+    position: fixed; top: 46px; right: 24px; z-index: 10;
+    display: flex; gap: 3px;
+    opacity: 0; transition: opacity 0.8s ease;
+  }
+  #save-controls.visible { opacity: 1; }
+  .save-btn {
+    background: rgba(25, 25, 55, 0.5); border: 1px solid rgba(55, 55, 90, 0.3);
+    border-radius: 4px; color: #454565; font-family: inherit;
+    font-size: 0.62rem; padding: 3px 9px; cursor: pointer;
+    transition: all 0.15s ease; letter-spacing: 0.02em;
+  }
+  .save-btn:hover { color: #7070a0; border-color: rgba(80, 80, 120, 0.4); }
+  #file-input { display: none; }
+
   /* --- Inspector panel --- */
   #inspector {
     position: fixed; top: 50%; right: 20px; transform: translateY(-50%);
@@ -188,6 +204,12 @@
   <button class="spd-btn" data-speed="32">32x</button>
 </div>
 
+<div id="save-controls">
+  <button class="save-btn" id="btn-save">save</button>
+  <button class="save-btn" id="btn-load">load</button>
+  <input type="file" id="file-input" accept=".json">
+</div>
+
 <div id="inspector">
   <div class="insp-head">
     <div class="insp-hue-dot" id="i-dot"></div>
@@ -217,6 +239,7 @@
     <span class="insp-lbl" style="margin-left:8px">mate</span><span class="insp-val" id="i-mat" style="color:hsl(340,75%,65%)">0</span>
     <span class="insp-lbl" style="margin-left:8px">diet</span><span class="insp-val" id="i-diet">0.5</span>
     <span class="insp-lbl" style="margin-left:8px">scent</span><span class="insp-val" id="i-scent" style="color:hsl(40,55%,55%)">0.25</span>
+    <span class="insp-lbl" style="margin-left:4px">/</span><span class="insp-val" id="i-phd" style="color:hsl(40,45%,50%)">0</span>
   </div>
   <div class="insp-divider"></div>
   <div class="insp-brain-lbl" id="i-brain-lbl">NEURAL NETWORK</div>
@@ -229,6 +252,7 @@
   <div><kbd>1</kbd> <kbd>2</kbd> <kbd>4</kbd> speed &nbsp; <kbd>t</kbd> time-lapse (16x/32x)</div>
   <div><kbd>space</kbd> pause / play</div>
   <div><kbd>e</kbd> trait timeline &nbsp; <kbd>m</kbd> toggle music &nbsp; <kbd>h</kbd> toggle help &nbsp; <kbd>esc</kbd> deselect</div>
+  <div><kbd>s</kbd> save ecosystem &nbsp; <kbd>l</kbd> load ecosystem</div>
 </div>
 
 <div id="event-log"></div>

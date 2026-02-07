@@ -20,13 +20,14 @@ all from nothing but neural network mutation and survival pressure.
 ## Current State (v2)
 
 ### What's Built
-- 29-12-7 recurrent neural network brains (25 sensory + 4 memory inputs,
-  12 hidden, 7 outputs)
+- 32-12-8 recurrent neural network brains (28 sensory + 4 memory inputs,
+  12 hidden evolvable 4-20, 8 outputs)
 - Perception: nearest food (direction, distance), nearest creature (direction,
   distance, relative size, kin similarity), nearest signaler per channel
   (3 channels x direction + strength), own energy, bias, nearest obstacle
   (direction, distance), pheromone gradient (direction, intensity)
-- Outputs: turn rate, speed, 3 signal channel strengths, energy share, mate
+- Outputs: turn rate, speed, 3 signal channel strengths, energy share, mate,
+  pheromone deposition intensity
 - 4 recurrent memory neurons (hidden[0..3] fed back as input)
 - Genetic traits: hue (color lineage), body size, speed multiplier
 - Organic body rendering with 5 trailing segments
@@ -42,7 +43,10 @@ all from nothing but neural network mutation and survival pressure.
 - Creature inspector with real-time neural network visualization
 - Species tracking (12 named species via hue buckets), stacked population chart
 - Energy sharing between creatures, mate selection
-- Speed controls (1x/2x/4x)
+- Speed controls (1x/2x/4x/16x/32x time-lapse)
+- Save/load ecosystem state (JSON files, keyboard s/l)
+- Behavioral mode indicators (foraging/hunting/fleeing/sharing/mating arcs)
+- Brain-controlled pheromone deposition (8th output modulates gene max rate)
 - Vignette, particle effects, glow rendering
 
 ### What Works Well
@@ -1130,3 +1134,64 @@ interesting group dynamics equation: same-species clusters are harder to eat
 AND better at hunting. This should create selection pressure for species to
 either cluster strongly (group specialists) or disperse (loner specialists),
 adding another axis of strategic diversity.
+
+### Session 21 - 2026-02-07
+**Built:** Save/load ecosystem state (#28), pheromone deposition as brain
+output (#61), behavioral mode indicators (partial #70) - all three Phase 6
+priorities.
+
+1. **Save/load ecosystem state (#28):** Full ecosystem serialization to JSON
+   files. World.toJSON() captures all simulation state: creatures (with complete
+   brain weights, genes, body trail, behavioral outputs), food (position, type,
+   energy, hue), hotspots (position, velocity, strength), obstacles, current
+   zones (position, angle, velocity, rotation), pheromone grid (all 12 species
+   layers), tick counters, population and trait history. Brain.toJSON() stores
+   all weight matrices as plain arrays. Creature.fromJSON() handles backward
+   compatibility - old saves with 7 brain outputs auto-upgrade to 8 (new phd
+   output gets small random init). UI: "save" and "load" buttons below speed
+   controls, keyboard shortcuts 's' and 'l'. Save pauses simulation during
+   serialization, produces a named file (emergence-gen{N}-{time}.json). Load
+   clears trail canvas and resets camera. This is the foundation for long-term
+   evolution - viewers can now grow ecosystems over days.
+
+2. **Pheromone deposition as brain output (#61):** New 8th brain output 'phd'
+   (index 7) controls pheromone deposition intensity (0-1). The phDeposit gene
+   remains as a scaling factor (max rate), so actual deposition = phDepOut *
+   phDeposit. Metabolic cost is proportional to actual deposition (phDepOut *
+   phDeposit * METABOLISM_PH_FACTOR), so creatures that choose to go silent pay
+   nothing. This transforms pheromone marking from a fixed behavior into a
+   brain-controlled decision: deposit heavily near food to mark for kin, go
+   silent in enemy territory to avoid revealing position, mark paths for
+   others. Brain grew from 32-N-7 to 32-N-8. Inspector shows phd output value.
+   Brain viz colors phd node warm amber (matching pheromone aesthetic).
+
+3. **Behavioral mode indicators (partial #70):** Mode detection added to
+   Creature.think() based on brain outputs and perception state. Five active
+   modes: foraging (moving toward food), hunting (near smaller creature),
+   fleeing (near larger creature, moving fast), sharing (high shareOut near
+   kin), mating (high mateOut with energy). Rendered as subtle colored arc
+   in the creature's heading direction: green (forage), red-orange (hunt),
+   yellow (flee), teal (share), pink (mate). Very subtle (0.18-0.22 alpha)
+   to preserve aesthetic. No gameplay effect - purely visual legibility.
+
+**Learned:** Save/load required careful thought about what to serialize and
+what to reconstruct. Transient state (spatial grids, particles, event log,
+species tracker) is reconstructed fresh on load - only persistent simulation
+state is saved. The pheromone grid (12 species layers, ~2500 cells each) is
+the largest single data structure in the save file. The backward compatibility
+for brain output count is important - as the brain architecture evolves across
+versions, save files from older versions should still load.
+
+The pheromone brain output is the last new mechanic the roadmap permits. It
+completes the communication channel: creatures already perceive pheromone
+gradients (Session 18 confirmed functional), and now they can control
+deposition. This creates a full sender-receiver loop for chemical communication
+without requiring co-evolution of both sides simultaneously (the receiver side
+is environmental, always present).
+
+Behavioral mode indicators are the first step toward emergence visibility.
+Even at overview zoom, the subtle colored arcs make it possible to see that
+creatures near food have green arcs (foraging) while creatures near larger
+neighbors have yellow arcs (fleeing). This is the beginning of making the
+simulation self-documenting - the "wait, did that creature just...?" moment
+requires seeing what creatures are doing, not just where they are.

@@ -218,8 +218,9 @@ class World {
       c.move(this.w, this.h, this.obstacles, this.currents);
       if (c.huntCooldown > 0) c.huntCooldown--;
 
-      // Deposit species-scented pheromone at current position (evolvable rate)
-      this.phGrid.deposit(c.pos.x, c.pos.y, c.genes.phDeposit, Math.floor(c.genes.hue / 30) % 12);
+      // Deposit species-scented pheromone: brain output modulates gene max rate
+      const phAmount = c.phDepOut * c.genes.phDeposit;
+      if (phAmount > 0.005) this.phGrid.deposit(c.pos.x, c.pos.y, phAmount, Math.floor(c.genes.hue / 30) % 12);
 
       // Energy sharing (kin-only) + cooperative foraging bonus
       const cBucket = Math.floor(c.genes.hue / 30) % 12;
@@ -437,6 +438,95 @@ class World {
     let max = 0;
     for (let i = 0; i < this.creatures.length; i++) if (this.creatures[i].age > max) max = this.creatures[i].age;
     return max;
+  }
+
+  toJSON() {
+    return {
+      version: 1,
+      w: this.w, h: this.h, tick: this.tick,
+      births: this.births, sexualBirths: this.sexualBirths,
+      deaths: this.deaths, maxGen: this.maxGen,
+      hotspots: this.hotspots.map(hs => ({ x: hs.x, y: hs.y, vx: hs.vx, vy: hs.vy, strength: hs.strength })),
+      obstacles: this.obstacles.map(ob => ({ x: ob.pos.x, y: ob.pos.y, radius: ob.radius })),
+      currents: this.currents.map(cz => ({
+        x: cz.pos.x, y: cz.pos.y, angle: cz.angle, strength: cz.strength,
+        radius: cz.radius, rotSpeed: cz.rotSpeed, vx: cz.vx, vy: cz.vy,
+      })),
+      creatures: this.creatures.map(c => c.toJSON()),
+      food: this.food.map(f => ({
+        x: f.pos.x, y: f.pos.y, hue: f.hue, energy: f.energy, type: f.type,
+      })),
+      pheromoneSpecies: Array.from(this.phGrid.speciesData),
+      popHistory: this.popHistory.slice(),
+      traitHistory: this.traitHistory.slice(),
+    };
+  }
+
+  loadFromJSON(data) {
+    // Restore counters
+    this.tick = data.tick;
+    this.births = data.births;
+    this.sexualBirths = data.sexualBirths;
+    this.deaths = data.deaths;
+    this.maxGen = data.maxGen;
+
+    // Restore hotspots
+    this.hotspots = data.hotspots.map(h => {
+      const hs = new Hotspot(h.x, h.y);
+      hs.vx = h.vx; hs.vy = h.vy; hs.strength = h.strength;
+      return hs;
+    });
+
+    // Restore obstacles
+    this.obstacles = data.obstacles.map(o => new Obstacle(o.x, o.y, o.radius));
+
+    // Rebuild pheromone mask for restored obstacles
+    this.phGrid = new PheromoneGrid(this.w, this.h);
+    this.phGrid.buildMask(this.obstacles);
+
+    // Restore pheromone species data and rebuild totals
+    if (data.pheromoneSpecies) {
+      this.phGrid.speciesData.set(data.pheromoneSpecies);
+      const n = this.phGrid.cols * this.phGrid.rows;
+      for (let i = 0; i < n; i++) {
+        let total = 0;
+        for (let s = 0; s < 12; s++) total += this.phGrid.speciesData[i * 12 + s];
+        this.phGrid.data[i] = total;
+      }
+    }
+
+    // Restore currents
+    this.currents = data.currents.map(d => {
+      const cz = new CurrentZone(d.x, d.y, d.angle, d.strength, d.radius);
+      cz.rotSpeed = d.rotSpeed; cz.vx = d.vx; cz.vy = d.vy;
+      return cz;
+    });
+
+    // Restore creatures (reset cidCounter to avoid ID collisions)
+    cidCounter = 0;
+    this.creatures = data.creatures.map(d => Creature.fromJSON(d));
+    // Set cidCounter past all loaded IDs
+    let maxId = 0;
+    for (let i = 0; i < this.creatures.length; i++) {
+      if (this.creatures[i].id >= maxId) maxId = this.creatures[i].id + 1;
+    }
+    cidCounter = maxId;
+
+    // Restore food
+    this.food = data.food.map(f => new Food(f.x, f.y, f.hue, f.energy, f.type));
+
+    // Restore history
+    this.popHistory = data.popHistory || [];
+    this.traitHistory = data.traitHistory || [];
+
+    // Reset transient state
+    this.particles = [];
+    this.recentPredations = 0;
+    this.selected = null;
+    this.speciesTracker = new SpeciesTracker();
+    this.eventLog = new EventLog();
+    this.foodGrid = new SpatialGrid(this.w, this.h, CFG.GRID_CELL);
+    this.creatureGrid = new SpatialGrid(this.w, this.h, CFG.GRID_CELL);
   }
 
   creatureAt(x, y) {

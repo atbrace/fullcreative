@@ -52,7 +52,7 @@ const CFG = {
   BRAIN_HIDDEN: 12,
   BRAIN_HIDDEN_MIN: 4,
   BRAIN_HIDDEN_MAX: 20,
-  BRAIN_OUTPUTS: 7,
+  BRAIN_OUTPUTS: 8,
   BRAIN_RECURRENT: 4,
   SIGNAL_CHANNELS: 3,
   MUTATION_RATE: 0.12,
@@ -132,7 +132,7 @@ const CFG = {
 };
 
 const INPUT_LABELS = ['fd.s','fd.c','fd.d','cr.s','cr.c','cr.d','cr.z','s0.s','s0.c','s0.v','s1.s','s1.c','s1.v','s2.s','s2.c','s2.v','nrg','1.0','kin','ob.s','ob.c','ob.d','kp.s','kp.c','kp.v','fp.s','fp.c','fp.v','m.0','m.1','m.2','m.3'];
-const OUTPUT_LABELS = ['turn','spd','sg0','sg1','sg2','shr','mat'];
+const OUTPUT_LABELS = ['turn','spd','sg0','sg1','sg2','shr','mat','phd'];
 const SIGNAL_HUES = [30, 200, 320]; // gold, blue, magenta - universal per channel
 
 // Precomputed RGB colors for species-scented pheromone rendering (12 hue buckets)

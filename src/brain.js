@@ -95,6 +95,22 @@ class Brain {
     m(this.wih); m(this.bh); m(this.who); m(this.bo);
   }
 
+  toJSON() {
+    return {
+      ni: this.ni, nh: this.nh, no: this.no,
+      wih: Array.from(this.wih), bh: Array.from(this.bh),
+      who: Array.from(this.who), bo: Array.from(this.bo),
+    };
+  }
+
+  static fromJSON(d) {
+    const b = new Brain(d.ni, d.nh, d.no);
+    b.wih.set(d.wih); b.bh.set(d.bh);
+    b.who.set(d.who); b.bo.set(d.bo);
+    b.memory.fill(0);
+    return b;
+  }
+
   // Crossover two brains into a child with targetNh hidden neurons.
   // For shared neurons (index < min(a.nh, b.nh)): uniform crossover.
   // For neurons only one parent has: copy from that parent.
