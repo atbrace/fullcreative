@@ -7,6 +7,8 @@ class Renderer {
     this.tctx = tc.getContext('2d');
     this.mctx = mc.getContext('2d');
     this.showTraits = false;
+    this.cam = { x: 0, y: 0, zoom: 1 };
+    this.camTarget = { x: 0, y: 0, zoom: 1 };
     this.resize();
   }
 
@@ -22,11 +24,36 @@ class Renderer {
     const [r, g, b] = CFG.BG;
     this.tctx.fillStyle = `rgb(${r},${g},${b})`;
     this.tctx.fillRect(0, 0, this.w, this.h);
+    this.cam.x = this.w / 2; this.cam.y = this.h / 2; this.cam.zoom = 1;
+    this.camTarget.x = this.w / 2; this.camTarget.y = this.h / 2; this.camTarget.zoom = 1;
   }
 
   render(world, simSpeed) {
     simSpeed = simSpeed || 1;
     const tctx = this.tctx, ctx = this.mctx, W = this.w, H = this.h;
+
+    // --- Camera ---
+    const follow = world.selected;
+    if (follow && follow.alive) {
+      this.camTarget.x = follow.pos.x;
+      this.camTarget.y = follow.pos.y;
+      this.camTarget.zoom = 2.5;
+    } else {
+      this.camTarget.x = W / 2;
+      this.camTarget.y = H / 2;
+      this.camTarget.zoom = 1;
+    }
+    const cl = 0.06;
+    this.cam.x += (this.camTarget.x - this.cam.x) * cl;
+    this.cam.y += (this.camTarget.y - this.cam.y) * cl;
+    this.cam.zoom += (this.camTarget.zoom - this.cam.zoom) * cl;
+    if (Math.abs(this.cam.zoom - this.camTarget.zoom) < 0.002) this.cam.zoom = this.camTarget.zoom;
+    const z = this.cam.zoom;
+    // Clamp camera to keep view within world bounds
+    const hw = W / (2 * z), hh = H / (2 * z);
+    this.cam.x = clamp(this.cam.x, hw, W - hw);
+    this.cam.y = clamp(this.cam.y, hh, H - hh);
+    const cx = this.cam.x, cy = this.cam.y;
 
     // Day/night subtly affects trail fade
     const dayP = world.dayPhase;
@@ -44,6 +71,12 @@ class Renderer {
     tctx.fillStyle = `rgba(${bgR},${bgG},${bgB},${trailFade})`;
     tctx.fillRect(0, 0, W, H);
 
+    // Camera transform for trail world elements
+    tctx.save();
+    tctx.translate(W / 2, H / 2);
+    tctx.scale(z, z);
+    tctx.translate(-cx, -cy);
+
     // Mask obstacle interiors on trail canvas
     tctx.fillStyle = `rgb(${br},${bg},${bb})`;
     for (let i = 0; i < world.obstacles.length; i++) {
@@ -60,8 +93,16 @@ class Renderer {
       tctx.fill();
     }
 
+    tctx.restore();
+
     // --- Main canvas ---
     ctx.clearRect(0, 0, W, H);
+
+    // Camera transform for world elements
+    ctx.save();
+    ctx.translate(W / 2, H / 2);
+    ctx.scale(z, z);
+    ctx.translate(-cx, -cy);
 
     // Hotspot glow (modulated by season)
     ctx.globalCompositeOperation = 'lighter';
@@ -277,6 +318,8 @@ class Renderer {
       ctx.beginPath(); ctx.arc(p.x, p.y, p.size * a, 0, 6.283); ctx.fill();
     }
 
+    ctx.restore();
+
     // --- UI layer (source-over) ---
     ctx.globalCompositeOperation = 'source-over';
 
@@ -293,6 +336,13 @@ class Renderer {
 
     // Trait timeline (toggle with 'e')
     if (this.showTraits) this.drawTraitGraph(ctx, world, W, H);
+  }
+
+  screenToWorld(sx, sy) {
+    return {
+      x: (sx - this.w / 2) / this.cam.zoom + this.cam.x,
+      y: (sy - this.h / 2) / this.cam.zoom + this.cam.y,
+    };
   }
 
   _renderPheromones(ctx, phGrid) {

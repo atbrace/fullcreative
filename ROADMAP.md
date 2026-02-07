@@ -888,3 +888,64 @@ code this session. Three audio parameter modulations (filter cutoff, LFO rate,
 filter Q) create a soundscape that unconsciously mirrors the simulation state.
 Watching a famine unfold while the drone becomes darker and more resonant is
 a genuinely atmospheric experience.
+
+### Session 18 - 2026-02-07
+**Built:** Camera/zoom follow system (#54), pheromone investigation (#59),
+active social defense investigation (#57/#58).
+
+1. **Camera/zoom follow system (#54):** Click a creature to smoothly zoom to
+   2.5x and track it. Camera lerps at 0.06 per frame (~1 second transition).
+   Both trail canvas and main canvas get camera transforms. Trail dots accumulate
+   in camera space, creating a "creature-centered motion trail" when following.
+   Mouse clicks reverse-transformed to world coordinates for selection and
+   interaction. Camera clamped to world bounds to prevent showing empty space.
+   Pressing escape or clicking empty space zooms back to overview. Dramatically
+   improves the spectator experience - watching a single creature navigate
+   obstacles, encounter food, and meet other creatures up close makes existing
+   behaviors far more legible.
+
+2. **Pheromone investigation (#59):** Benchmark analysis (3 trials x 54K ticks)
+   reveals pheromone inputs are FUNCTIONAL (score 7/12). Key evidence: weights
+   grew 36% over evolution, ph/non-ph ratio stable at 0.99, higher-generation
+   creatures have 114% larger pheromone weights, inputs active 89% of the time.
+   This is a significant finding - unlike signal channels (evolved noise, Session
+   11), pheromone inputs ARE being used by evolved brains. The difference: pheromone
+   signals are environmental (created by all creatures' movement, always present)
+   and don't require co-evolution of sender AND receiver. This validates the
+   pheromone system design and suggests pheromone-based mechanics are productive.
+
+3. **Active social defense investigation (#57):** Benchmarked two variants of
+   share-scaled kin defense: (a) kin defense bonus multiplied by prey's shareOut,
+   (b) cooperative metabolism bonus (energy refund for kin proximity scaled by
+   shareOut). Both failed 0/6 criteria across 10 total trials (5 each). Root
+   cause: SHARE_RATE=0.8 makes sharing cost 100-800x more than any cooperative
+   benefit. Share output naturally evolves DOWN because donors deplete themselves.
+   Filed #58 for future sharing economics redesign. Reverted to Session 17's
+   passive kin defense (known-good).
+
+**Benchmark methodology:** Pheromone investigation: 6 lines of evidence (weight
+magnitude ratios, temporal trajectory, energy correlation, quartile comparison,
+input value structure, generational trend). Social defense: 6 success criteria
+(variance increase, mean trend, fitness advantage, defense magnitude, trial
+robustness, differential selection vs control). Both used Playwright headless
+with 54K-tick runs.
+
+**Learned:** The most important finding is the cost-benefit analysis of
+cooperative evolution. Sharing energy at SHARE_RATE=0.8 costs 100-800x more
+than any reasonable cooperative benefit. This is why shareOut trends to zero
+in every trial - Hamilton's rule (r*B > C) is not satisfied. For cooperation
+to evolve, the sharing cost must be reduced by ~10x or the benefits increased
+by ~100x. This mirrors real evolutionary biology: altruism only evolves when
+the cost-benefit ratio is favorable, which requires either very high relatedness,
+reciprocal exchange (needing sophisticated memory), or group-level selection.
+
+The pheromone result is encouraging: creatures ARE using environmental chemical
+information even without explicit training. This suggests the brain architecture
+(32 inputs, 4-20 hidden, 7 outputs with 4 recurrent neurons) is capable of
+learning from environmental signals. The bottleneck for social behavior is not
+the brain - it's the economics of cooperation.
+
+The camera system transforms the viewing experience. Following a creature at
+2.5x zoom reveals behavioral details invisible at overview scale: obstacle
+navigation patterns, food approach strategies, reactions to nearby creatures.
+This is the highest spectator-value feature since the stacked species chart.

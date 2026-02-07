@@ -71,14 +71,15 @@
   // --- Mouse ---
   mainCanvas.addEventListener('click', (e) => {
     if (!started) return;
+    const wp = renderer.screenToWorld(e.clientX, e.clientY);
     if (e.shiftKey) {
-      const c = Creature.createRandom(e.clientX, e.clientY);
+      const c = Creature.createRandom(wp.x, wp.y);
       world.creatures.push(c);
-      world.spawnP(e.clientX, e.clientY, c.genes.hue, 12, 3, 25, 2);
+      world.spawnP(wp.x, wp.y, c.genes.hue, 12, 3, 25, 2);
       return;
     }
     // Try to select creature
-    const hit = world.creatureAt(e.clientX, e.clientY);
+    const hit = world.creatureAt(wp.x, wp.y);
     if (hit) {
       world.selected = hit;
       inspEl.classList.add('visible');
@@ -88,9 +89,9 @@
       // Add food burst
       for (let i = 0; i < 8; i++) {
         if (world.food.length < CFG.MAX_FOOD + 25)
-          world.food.push(new Food(e.clientX + rand(-30, 30), e.clientY + rand(-30, 30)));
+          world.food.push(new Food(wp.x + rand(-30, 30), wp.y + rand(-30, 30)));
       }
-      world.spawnP(e.clientX, e.clientY, 140, 14, 2.5, 25, 1.5);
+      world.spawnP(wp.x, wp.y, 140, 14, 2.5, 25, 1.5);
     }
   });
 
