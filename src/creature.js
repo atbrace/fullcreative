@@ -240,7 +240,8 @@ class Creature {
     const brainCost = this.genes.brainSize * CFG.METABOLISM_BRAIN_FACTOR;
     const senseCost = this.genes.senseRange * CFG.METABOLISM_SENSE_FACTOR;
     const phCost = this.genes.phDeposit * CFG.METABOLISM_PH_FACTOR;
-    this.energy -= (CFG.METABOLISM_BASE * sizeCost + this.speed * CFG.METABOLISM_SPEED_FACTOR + brainCost + senseCost + phCost);
+    const agingCost = this.age > CFG.AGING_ONSET ? (this.age - CFG.AGING_ONSET) * CFG.AGING_RATE : 0;
+    this.energy -= (CFG.METABOLISM_BASE * sizeCost + this.speed * CFG.METABOLISM_SPEED_FACTOR + brainCost + senseCost + phCost + agingCost);
     this.age++;
   }
 

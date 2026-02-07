@@ -30,10 +30,19 @@ const CFG = {
   PREDATION_EFFICIENCY: 0.55,
   HUNT_COOLDOWN: 90,              // ticks after a kill before can hunt again
 
+  // Aging and senescence
+  AGING_ONSET: 3000,               // ticks before aging begins (~50s at 60fps)
+  AGING_RATE: 0.00004,             // metabolism increase per tick past onset
+
   // Kin proximity defense
   KIN_DEFENSE_RANGE: 80,          // radius to count nearby kin for defense
   KIN_DEFENSE_PER_KIN: 0.03,     // predation ratio increase per nearby kin
   KIN_DEFENSE_MAX: 0.15,         // cap on total kin defense bonus
+
+  // Cooperative hunting (pack bonus for predator)
+  COOP_HUNT_RANGE: 60,            // radius to count nearby kin for pack hunting
+  COOP_HUNT_PER_KIN: 0.02,       // ratio reduction per hunting kin
+  COOP_HUNT_MAX: 0.08,           // cap on total pack hunting bonus
 
   REPRODUCE_KEEP: 0.45,
   REPRODUCE_GIVE: 0.32,

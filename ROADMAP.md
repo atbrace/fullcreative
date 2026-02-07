@@ -1021,3 +1021,57 @@ others evolve loud marking (0.35-0.48, strong territory marking). The average
 across trials stays near default because evolution explores both strategies.
 This is exactly the kind of strategic diversity that makes different
 evolutionary runs unique - a design win for the emergence philosophy.
+
+### Session 20 - 2026-02-07
+**Built:** Aging and senescence (#64) and cooperative hunting (#60).
+
+1. **Aging and senescence (#64):** Soft mortality increase with age. After
+   AGING_ONSET (3000 ticks, ~50 seconds), metabolism increases linearly at
+   AGING_RATE (0.00004 per tick past onset). At 60s: +0.024/tick (34% of base
+   metabolism). At 80s: +0.072/tick (doubles base). At 100s: +0.12/tick (triples
+   base). This creates generational turnover without sudden death - creatures in
+   food-rich areas survive longer, but nobody lives forever. No new brain inputs
+   or outputs - aging is invisible pressure that reshapes population dynamics.
+
+2. **Cooperative hunting (#60):** Nearby kin of the predator reduce the effective
+   predation ratio, making pack hunting easier. COOP_HUNT_RANGE=60, COOP_HUNT_PER_KIN
+   =0.02, COOP_HUNT_MAX=0.08. A lone hunter needs 1.18x size advantage; a pack of 4+
+   needs only 1.10x. Pre-computed outside the prey loop for efficiency. Creates
+   interesting tension with kin defense: prey kin increase the ratio (harder to eat),
+   predator kin decrease it (easier to eat). Groups of the same species benefit from
+   both effects simultaneously - defense when targeted, hunting power when hunting.
+
+**Benchmark (10 runs x 54K ticks, 8/8 criteria pass):**
+```
+Generation:        74.0 +/- 12.7 [51, 95]  (was ~50-75 baseline)
+Population:        41.3 +/- 8.1
+Max oldest (s):    60.8 +/- 20.2 [29.0, 100.3]  (was 106-132s - aging caps lifespan)
+Mean age (s):      13.3 +/- 2.8
+Aging creatures:   4.2%  (reachable but not dominant)
+Total births:      2382 +/- 507  (was ~209 - 10x more turnover)
+Pack rate:         61.6%  (most creatures have hunting kin nearby)
+Share mean:        0.566  (cooperation maintained)
+Robustness:        10/10 trials pass gen>15
+Trait evolution:   size UP (+0.36), speed UP (+0.27), brain flat, sense flat
+```
+
+**Learned:** Aging has a much larger effect on ecosystem dynamics than expected.
+The 10x increase in births (2382 vs ~209 baseline) shows that the old ecosystem
+was dominated by long-lived individuals who monopolized resources and reproduced
+slowly. With aging, the "sit on a food source forever" strategy is no longer
+viable past 50 seconds - creatures must reproduce before senescence. This
+dramatically accelerates generational turnover and evolution (74 avg generations
+vs ~50-75 before, in the same number of ticks).
+
+The cooperative hunting mechanic integrates naturally with existing species
+clustering. Pack formation rate of 61.6% shows creatures already tend to be near
+kin (a result of the cooperative foraging bonus from Session 19 + pheromone
+trail following). The hunting bonus doesn't need to create clustering - it just
+rewards clustering that already exists, adding another dimension to the
+cost-benefit analysis of group living.
+
+The interaction between kin defense and cooperative hunting creates a genuinely
+interesting group dynamics equation: same-species clusters are harder to eat
+AND better at hunting. This should create selection pressure for species to
+either cluster strongly (group specialists) or disperse (loner specialists),
+adding another axis of strategic diversity.

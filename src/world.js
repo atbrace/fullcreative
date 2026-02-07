@@ -271,6 +271,16 @@ class World {
 
       // Predation (skip if on hunt cooldown)
       if (c.huntCooldown <= 0) {
+        // Pre-compute predator's kin count for cooperative hunting
+        const predKinNearby = this.creatureGrid.query(c.pos.x, c.pos.y, CFG.COOP_HUNT_RANGE);
+        let predKinCount = 0;
+        for (let k = 0; k < predKinNearby.length; k++) {
+          const ally = predKinNearby[k];
+          if (ally.id === c.id || !ally.alive) continue;
+          if (Math.floor(ally.genes.hue / 30) % 12 === cBucket) predKinCount++;
+        }
+        const coopHuntBonus = Math.min(predKinCount * CFG.COOP_HUNT_PER_KIN, CFG.COOP_HUNT_MAX);
+
         const nc = this.creatureGrid.query(c.pos.x, c.pos.y, c.radius * CFG.PREDATION_RANGE);
         for (let j = 0; j < nc.length; j++) {
           const prey = nc[j];
@@ -288,6 +298,8 @@ class World {
             if (Math.floor(ally.genes.hue / 30) % 12 === preyBucket) kinCount++;
           }
           effectiveRatio += Math.min(kinCount * CFG.KIN_DEFENSE_PER_KIN, CFG.KIN_DEFENSE_MAX);
+          // Cooperative hunting: predator's nearby kin reduce the ratio needed
+          effectiveRatio -= coopHuntBonus;
 
           if (c.radius > prey.radius * effectiveRatio) {
             prey.alive = false;
