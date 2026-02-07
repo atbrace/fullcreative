@@ -105,6 +105,11 @@ async function run() {
             deaths: w.deaths,
             maxGen: w.maxGen,
             species: w.countSpecies(),
+            speciesDetail: w.speciesTracker.getCurrent().map(s => ({
+              name: typeof SPECIES_NAMES !== 'undefined' ? SPECIES_NAMES[s.b] : 'B' + s.b,
+              hue: Math.round(s.hue),
+              count: s.count
+            })),
             wallCount,
             cornerCount,
             inCurrentZone,
@@ -180,6 +185,10 @@ async function run() {
   console.log(`  Wall creatures: max=${maxWall}, avg=${avgWall}`);
   console.log(`  Final generation: ${finalSample.maxGen}`);
   console.log(`  Final species: ${finalSample.species}`);
+  if (finalSample.speciesDetail && finalSample.speciesDetail.length > 0) {
+    const spStr = finalSample.speciesDetail.map(s => `${s.name}(${s.count})`).join(' ');
+    console.log(`  Species breakdown: ${spStr}`);
+  }
   console.log(`  Total births: ${finalSample.births}`);
   console.log(`  Sexual births: ${finalSample.sexualBirths}`);
   console.log(`  Total deaths: ${finalSample.deaths}`);
@@ -210,10 +219,13 @@ async function run() {
   const floorHits = samples.filter(s => s.pop <= 12).length;
   console.log(`  [INFO] Population floor hits (pop <= 12): ${floorHits}/${samples.length} samples`);
 
+  const allPass = popStable && noCornerTrapping && seasonalEffect && evolved;
+  console.log(`\n  Overall: ${allPass ? 'PASS' : 'FAIL'}`);
   console.log('\n=== BENCHMARK COMPLETE ===\n');
+  return allPass ? 0 : 1;
 }
 
-run().catch(err => {
+run().then(code => process.exit(code)).catch(err => {
   console.error('Benchmark failed:', err);
-  process.exit(1);
+  process.exit(2);
 });

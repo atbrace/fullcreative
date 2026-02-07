@@ -1,55 +1,50 @@
 # Emergence - Architecture Map
 
-Quick reference for navigating `emergence.html`. All code is in a single file.
-Line numbers are approximate - check nearby if exact lines have shifted.
+Quick reference for navigating the Emergence codebase. Code is split across 10
+files in `src/`, loaded via plain `<script>` tags in dependency order.
 
 ## File Structure
 
 ```
-emergence.html (~ 1785 lines)
-|
-+-- HTML <head>              lines 1-6
-+-- CSS                      lines 7-135
-|   +-- Base/canvas          7-16
-|   +-- Overlay (start)      18-50
-|   +-- Stats panel          52-61
-|   +-- Speed controls       63-80
-|   +-- Inspector panel      82-111
-|   +-- Help panel           113-125
-|   +-- Pause indicator      127-134
-|
-+-- HTML <body>              lines 136-205
-|   +-- #overlay             139-150
-|   +-- #stats               152-162
-|   +-- #speed-controls      164-168
-|   +-- #inspector           170-192
-|   +-- #help-panel          194-200
-|   +-- #pause-label         202
-|   +-- canvases             204-205
-|
-+-- <script>                 lines 207-1785
-    +-- CFG (config)         211-285
-    +-- INPUT_LABELS         287-289
-    +-- Vec2 + utilities     294-310
-    +-- Brain                314-369
-    +-- SpatialGrid          372-399
-    +-- Particle             403-411
-    +-- Hotspot              416-431
-    +-- Food                 434-441
-    +-- Obstacle             445-451
-    +-- CurrentZone          455-476
-    +-- PheromoneGrid        477-575
-    +-- Creature             579-788
-    +-- AudioEngine          793-885
-    +-- World                889-1180
-    +-- Renderer             1190-1506
-    +-- renderBrain()        1509-1641
-    +-- Main IIFE            1647-1785
+emergence.html          HTML + CSS + script tags (~222 lines)
+src/
+  config.js             CFG object, label arrays, Vec2, math utilities
+  brain.js              Brain class (neural network)
+  entities.js           SpatialGrid, Particle, Hotspot, Food, Obstacle, CurrentZone
+  pheromones.js         PheromoneGrid class
+  species.js            SPECIES_NAMES array, SpeciesTracker class
+  creature.js           cidCounter, Creature class
+  world.js              World class (simulation state + update loop)
+  audio.js              AudioEngine class
+  renderer.js           Renderer class + renderBrain() function
+  main.js               Bootstrap IIFE, event handlers, game loop
 ```
 
-## Key Classes
+### Load Order (dependency chain)
 
-### Brain (314-388)
+```
+config -> brain -> entities -> pheromones -> species -> creature -> world -> audio -> renderer -> main
+```
+
+Each file can reference classes/functions from all files loaded before it.
+Plain `<script>` tags share the global scope - no ES modules, no bundler, no
+CORS issues with `file://`.
+
+## File Details
+
+### emergence.html
+HTML structure + CSS only. Contains:
+- `<head>`: CSS for overlay, stats, speed controls, inspector, help, pause
+- `<body>`: DOM elements (#overlay, #stats, #speed-controls, #inspector, #help-panel, #pause-label, canvases)
+- Script tags loading `src/*.js` in dependency order
+
+### src/config.js
+- `CFG` object: all tuning constants (population, physics, brain, rendering, etc.)
+- `INPUT_LABELS`, `OUTPUT_LABELS`, `SIGNAL_HUES`: label/color arrays
+- `Vec2` class: 2D vector with `copy()` and `dist()`
+- Utility functions: `rand`, `randInt`, `clamp`, `wrapAngle`, `gaussRand`
+
+### src/brain.js
 Recurrent neural network. `forward(sensory)` appends memory to sensory inputs,
 computes hidden+output activations, then feeds hidden[0..3] back as memory.
 Stores `lastInput`, `lastHidden`, `lastOutput` for the inspector.
@@ -59,17 +54,16 @@ Stores `lastInput`, `lastHidden`, `lastOutput` for the inspector.
 - `clone()` + `mutate(rate, amount)` for reproduction
 - `static crossover(a, b)` - uniform crossover: randomly picks each weight from parent a or b
 
-### Obstacle (445-451)
-Simple circle: `pos` (Vec2) + `radius`. No methods - collision and perception
-logic lives in Creature. Generated in formations by `World._generateObstacles()`.
+### src/entities.js
+Small data classes grouped together:
+- **SpatialGrid**: Grid-based spatial index for O(1) neighbor queries. `clear()`, `insert(e)`, `query(x, y, radius)`.
+- **Particle**: Visual-only effect particle with velocity, hue, life, size.
+- **Hotspot**: Nutrient source that drifts slowly. `drift(W, H)`.
+- **Food**: Position + alive flag + pulse animation + optional hue (corpse food).
+- **Obstacle**: Circle with `pos` (Vec2) + `radius`. No methods - collision logic lives in Creature.
+- **CurrentZone**: Drift force zone. `pos` + `angle` + `strength` + `radius`. Slowly drifts and rotates via `drift()`.
 
-### CurrentZone (455-476)
-Drift force zone. `pos` (Vec2) + `angle` (flow direction) + `strength` + `radius`.
-Slowly drifts position and rotates angle over time via `drift()`. Generated 2-4
-per world by `World._generateCurrents()`. Applies quadratic-falloff force to
-creatures during `move()`.
-
-### PheromoneGrid (477-575)
+### src/pheromones.js
 Chemical trail system. Low-resolution grid (~20px cells) covering the world.
 - `data`: Float32Array - current pheromone concentrations per cell
 - `buf`: Float32Array - double-buffer for diffusion (avoids read-write conflicts)
@@ -80,20 +74,22 @@ Chemical trail system. Low-resolution grid (~20px cells) covering the world.
 - `buildMask(obstacles)`: Pre-computes which cells are inside obstacle circles
 - `canvas`/`imgData`: Offscreen rendering surface for pheromone overlay visualization
 
-### Creature (590-835)
+### src/species.js
+Species identification and population tracking.
+- `SPECIES_NAMES`: Array of 12 names (one per 30-degree hue bucket): Kora, Vashi, Naia, Zelith, Thura, Shiko, Mori, Loxa, Pavi, Suri, Jera, Rixa
+- **SpeciesTracker** class:
+  - `update(creatures, tick)`: Counts creatures per hue bucket (30-degree bands), records snapshot to history. Called every 10 ticks alongside popHistory.
+  - `getCurrent()`: Returns current species sorted by population (descending). Each entry: `{b, hue, count}`.
+  - `bucketOf(creature)`: Returns bucket index (0-11) for a creature.
+  - `history`: Array of snapshots (max 600), each with `{buckets: [{b, hue, count}], total}`. Used by stacked species chart in renderer.
+  - `species`: Map of bucket -> `{firstTick, peakPop}` for species metadata.
+
+### src/creature.js
 The main entity. Key methods:
-- `perceive(foodGrid, creatureGrid, obstacles, phGrid)` [614-705]: Queries spatial
-  grids for nearest food, nearest creature, nearest signaler per channel, nearest
-  obstacle surface, and pheromone gradient. Returns 25-float sensory array.
-  Also stores `_nfPos`, `_ncPos` for viz, `_ncRef`/`_ncDist` for sharing.
-- `think(inputs)` [707-720]: Runs brain forward pass, sets heading, speed, 3 signals,
-  shareOut, mateOut.
-- `move(W, H, obstacles, currents)` [722-801]: Pushes body trail, updates position,
-  applies current zone drift, bounces walls with random perturbation, soft wall
-  repulsion, collides with obstacles (push-out + heading reflection), deducts metabolism.
-- `reproduce(mate)` [803-834]: Creates child. If mate provided, uses Brain.crossover
-  for sexual reproduction (gene averaging, brain crossover). Otherwise asexual (clone +
-  mutate). Mate pays 15% energy cost.
+- `perceive(foodGrid, creatureGrid, obstacles, phGrid)`: Queries spatial grids for nearest food, nearest creature, nearest signaler per channel, nearest obstacle surface, and pheromone gradient. Returns 25-float sensory array. Also stores `_nfPos`, `_ncPos` for viz, `_ncRef`/`_ncDist` for sharing.
+- `think(inputs)`: Runs brain forward pass, sets heading, speed, 3 signals, shareOut, mateOut.
+- `move(W, H, obstacles, currents)`: Pushes body trail, updates position, applies current zone drift, bounces walls with random perturbation, soft wall repulsion, collides with obstacles (push-out + heading reflection), deducts metabolism.
+- `reproduce(mate)`: Creates child. If mate provided, uses Brain.crossover for sexual reproduction (gene averaging, brain crossover). Otherwise asexual (clone + mutate). Mate pays 15% energy cost.
 
 **Brain inputs (29 = 25 sensory + 4 recurrent):**
 | Index | Name   | Description                              |
@@ -160,52 +156,41 @@ The main entity. Key methods:
 | Output 5     | Green       | Energy sharing   |
 | Output 6     | Pink        | Mating signal    |
 
-### World (900-1200)
+### src/world.js
 Simulation state and update loop. Key methods:
-- `seed()` [916-934]: Creates hotspots, generates obstacles, builds pheromone
-  obstacle mask, generates currents, spawns creatures + food.
-- `_generateObstacles()` [936-975]: 4-7 formations of 2-5 overlapping circles each.
-  Placement rejects positions near edges, center, hotspots, other formations.
-- `_generateCurrents()` [977-988]: 2-4 current zones with random position, angle,
-  strength, and radius.
-- `_spawnFood()` [990-1014]: Gaussian distribution around random weighted hotspot.
-  Retry loop rejects positions inside obstacles (up to 10 attempts).
-- `update(audio)` [1028-1173]: **The main simulation tick.** Order: compute
-  day/season multipliers, drift hotspots (faster in winter) + currents, diffuse
-  pheromones (every 4 ticks), spawn food (modulated by day+season), rebuild grids,
-  for each creature: perceive/think/move (with obstacles+currents+pheromone grid),
-  deposit pheromone, energy sharing (if shareOut > 0.1 and nearest creature within
-  20px), check eat, check predation, check reproduce (with mate search if mateOut
-  > 0.3, fallback to asexual), check death. Then cleanup dead entities, update
-  particles, population floor check (MIN_POP=18), record population history.
-- `dayPhase` [1014]: Getter, returns 0-1 sine wave over DAY_PERIOD ticks.
-- `seasonPhase` [1015]: Getter, returns 0-1 sine wave over SEASON_PERIOD ticks.
-- `creatureAt(x,y)` [1169-1179]: Hit-test for mouse selection.
+- `seed()`: Creates hotspots, generates obstacles, builds pheromone obstacle mask, generates currents, spawns creatures + food.
+- `_generateObstacles()`: 4-7 formations of 2-5 overlapping circles each. Placement rejects positions near edges, center, hotspots, other formations.
+- `_generateCurrents()`: 2-4 current zones with random position, angle, strength, and radius.
+- `_spawnFood()`: Gaussian distribution around random weighted hotspot. Retry loop rejects positions inside obstacles (up to 10 attempts).
+- `update(audio)`: **The main simulation tick.** Order: compute day/season multipliers, drift hotspots (faster in winter) + currents, diffuse pheromones (every 4 ticks), spawn food (modulated by day+season), rebuild grids, for each creature: perceive/think/move (with obstacles+currents+pheromone grid), deposit pheromone, energy sharing (if shareOut > 0.1 and nearest creature within 20px), check eat, check predation, check reproduce (with mate search if mateOut > 0.3, fallback to asexual), check death. Then cleanup dead entities, update particles, population floor check (MIN_POP=18), record population history.
+- `dayPhase`: Getter, returns 0-1 sine wave over DAY_PERIOD ticks.
+- `seasonPhase`: Getter, returns 0-1 sine wave over SEASON_PERIOD ticks.
+- `creatureAt(x,y)`: Hit-test for mouse selection.
 
-### Renderer (1190-1506)
-Canvas drawing. Uses two canvases:
-- **Trail canvas** (behind): Semi-transparent fade with seasonal color temperature
-  (warm amber in summer, cool blue in winter) + obstacle masking + creature position
-  dots each frame. Creates slowly fading light trails.
-- **Main canvas** (front): Cleared each frame. Draws hotspot glows (dimmed in
-  winter), current zone indicators (subtle glow + animated flow streaks), pheromone
-  grid overlay (warm amber glow via offscreen canvas), obstacles (dark body + edge
-  glow), food, creatures (body segments + signal rings + outer glow + core + heading
-  dot + selection decorations), particles, vignette, population graph.
-- `_renderPheromones(ctx, phGrid)`: Builds RGBA image data from pheromone grid,
-  puts it on offscreen canvas, draws scaled up with bilinear interpolation.
-- Blend mode: `lighter` for simulation elements, `source-over` for UI + obstacles.
-
-### renderBrain() (1509-1641)
-Draws the neural network visualization on the inspector's canvas. Three columns
-(input, hidden, output) with colored connections (blue=positive, red=negative)
-and activation-brightness nodes. Obstacle inputs colored slate blue, pheromone
-inputs colored warm amber.
-
-### AudioEngine (793-885)
+### src/audio.js
 Web Audio API. Drone: 4 detuned sine oscillators through low-pass filter with
 LFO. Events: `birthPing()` (pentatonic sine), `eatClick()` (high sine),
 `deathThud()` (low sine), `predationSweep()` (descending sawtooth).
+
+### src/renderer.js
+Canvas drawing. Uses two canvases:
+- **Trail canvas** (behind): Semi-transparent fade with seasonal color temperature (warm amber in summer, cool blue in winter) + obstacle masking + creature position dots each frame. Creates slowly fading light trails.
+- **Main canvas** (front): Cleared each frame. Draws hotspot glows (dimmed in winter), current zone indicators (subtle glow + animated flow streaks), pheromone grid overlay (warm amber glow via offscreen canvas), obstacles (dark body + edge glow), food, creatures (body segments + signal rings + outer glow + core + heading dot + selection decorations), particles, vignette, population graph.
+- `_renderPheromones(ctx, phGrid)`: Builds RGBA image data from pheromone grid, puts it on offscreen canvas, draws scaled up with bilinear interpolation.
+- `renderBrain(canvas, brain)`: Draws the neural network visualization on the inspector's canvas. Three columns (input, hidden, output) with colored connections and activation-brightness nodes.
+- Blend mode: `lighter` for simulation elements, `source-over` for UI + obstacles.
+
+### src/main.js
+Bootstrap IIFE. Initializes Renderer, World, AudioEngine. Wires up:
+- Overlay click to start simulation
+- Speed buttons (1x, 2x, 4x)
+- Keyboard shortcuts (space, h, m, 1/2/4, escape)
+- Mouse click (creature inspect, shift+click add creature, empty click add food)
+- Window resize
+- Inspector update (every 12 frames)
+- Stats update (every 12 frames)
+- Game loop via requestAnimationFrame
+- `window.__world` debug accessor
 
 ## Data Flow (One Frame)
 
@@ -254,29 +239,29 @@ LFO. Events: `birthPing()` (pentatonic sine), `eatClick()` (high sine),
 ## Extension Points
 
 **Adding a new brain input:**
-1. Increment `CFG.BRAIN_INPUTS`
-2. Add perception logic in `Creature.perceive()` (set `inp[N]`)
-3. Add label to `INPUT_LABELS` array
-4. Update brain viz color functions in `renderBrain()` if needed
+1. Increment `CFG.BRAIN_INPUTS` in `src/config.js`
+2. Add perception logic in `Creature.perceive()` in `src/creature.js` (set `inp[N]`)
+3. Add label to `INPUT_LABELS` array in `src/config.js`
+4. Update brain viz color functions in `renderBrain()` in `src/renderer.js` if needed
 5. Brain weight arrays auto-size from constructor args
 
 **Adding a new brain output:**
-1. Increment `CFG.BRAIN_OUTPUTS`
-2. Read output in `Creature.think()` (from `out[N]`)
-3. Add label to `OUTPUT_LABELS` array
+1. Increment `CFG.BRAIN_OUTPUTS` in `src/config.js`
+2. Read output in `Creature.think()` in `src/creature.js` (from `out[N]`)
+3. Add label to `OUTPUT_LABELS` array in `src/config.js`
 
 **Adding a new gene:**
-1. Add to `genes` object in `Creature.createRandom()`
-2. Add mutation in `Creature.reproduce()`
+1. Add to `genes` object in `Creature.createRandom()` in `src/creature.js`
+2. Add mutation in `Creature.reproduce()` in `src/creature.js`
 3. Use the gene value wherever it applies
 
 **Adding a new environmental feature:**
-1. Create class (like Hotspot or Obstacle)
-2. Initialize in `World.seed()`
-3. Update in `World.update()`
-4. Render in `Renderer.render()`
+1. Create class in `src/entities.js` (or new file if substantial)
+2. Initialize in `World.seed()` in `src/world.js`
+3. Update in `World.update()` in `src/world.js`
+4. Render in `Renderer.render()` in `src/renderer.js`
 5. If creatures should perceive it, add brain inputs
 
 **Adding a new audio event:**
-1. Add method to `AudioEngine`
-2. Call it from `World.update()` at the appropriate event
+1. Add method to `AudioEngine` in `src/audio.js`
+2. Call it from `World.update()` in `src/world.js` at the appropriate event

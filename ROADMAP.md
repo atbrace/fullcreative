@@ -20,19 +20,19 @@ all from nothing but neural network mutation and survival pressure.
 ## Current State (v2)
 
 ### What's Built
-- 29-12-5 recurrent neural network brains (25 sensory + 4 memory inputs,
-  12 hidden, 5 outputs)
+- 29-12-7 recurrent neural network brains (25 sensory + 4 memory inputs,
+  12 hidden, 7 outputs)
 - Perception: nearest food (direction, distance), nearest creature (direction,
   distance, relative size, kin similarity), nearest signaler per channel
   (3 channels x direction + strength), own energy, bias, nearest obstacle
   (direction, distance), pheromone gradient (direction, intensity)
-- Outputs: turn rate, speed, 3 signal channel strengths
+- Outputs: turn rate, speed, 3 signal channel strengths, energy share, mate
 - 4 recurrent memory neurons (hidden[0..3] fed back as input)
 - Genetic traits: hue (color lineage), body size, speed multiplier
 - Organic body rendering with 5 trailing segments
 - Food spawning clustered around 5 drifting nutrient hotspots (gaussian distribution)
 - Predation: creatures 1.35x larger can eat smaller ones
-- Asexual reproduction with brain mutation and gene drift
+- Asexual and sexual reproduction with brain mutation and gene drift
 - Generative ambient audio (drone + birth/death/eat/predation sounds)
 - Day/night cycle affecting food spawn rate and visual atmosphere
 - Terrain obstacles (rock formations with collision and brain perception)
@@ -40,7 +40,8 @@ all from nothing but neural network mutation and survival pressure.
 - Seasonal cycles (food abundance modulation over 14400-tick periods)
 - Pheromone grid (chemical trails that persist, diffuse, and decay)
 - Creature inspector with real-time neural network visualization
-- Population graph, species count, stats overlay
+- Species tracking (12 named species via hue buckets), stacked population chart
+- Energy sharing between creatures, mate selection
 - Speed controls (1x/2x/4x)
 - Vignette, particle effects, glow rendering
 
@@ -143,6 +144,14 @@ social relationships) and Phase 2 (creatures need territory to compete over).
 
 The simulation produces emergent behavior, but the viewer needs help recognizing
 and understanding it.
+
+**Completed:**
+- Species tracking system (2026-02-06): 30-degree hue buckets (12 species).
+  SpeciesTracker class tracks population per species over time.
+- Species naming (2026-02-06): Fixed names per bucket (Kora, Vashi, Naia, etc).
+  Shown in stats panel and creature inspector.
+- Stacked species population chart (2026-02-06): Replaced monochrome line with
+  stacked area chart colored by species hue. Immediate visual storytelling.
 
 **Remaining:** See GitHub Issues labeled `phase-4`.
 
@@ -406,3 +415,39 @@ need to independently evolve (1) food-finding, (2) mate-finding, and (3) mutual
 signaling all at once - an impossibly large search space. Asexual fallback means
 food-finding evolves first, then mating behavior can emerge gradually on top of
 an already-viable population. Phase 3: Social Dynamics is now complete.
+
+### Session 10 - 2026-02-06
+**Built:** Species tracking (#11), species naming (#12), stacked population
+chart (#13) - first three Phase 4 features.
+
+1. SpeciesTracker class (new file: src/species.js): Clusters creatures into
+   species by hue bucket (30-degree bands, 12 possible species). Each bucket
+   maps to a fixed name: Kora, Vashi, Naia, Zelith, Thura, Shiko, Mori, Loxa,
+   Pavi, Suri, Jera, Rixa. Tracks population per species over time (600-sample
+   history), records first appearance tick and peak population per species.
+   Called every 10 ticks alongside existing popHistory.
+2. Stacked species population chart: Replaced the monochrome population line
+   graph with a stacked area chart. Each species gets its own band colored by
+   average hue. Pre-computes cumulative stacks from species history. Draws
+   filled bands with semi-transparent fills (0.18 alpha) and subtle top-edge
+   strokes (0.35 alpha). Uses efficient flat array lookup for per-entry counts.
+3. Species naming in stats panel: The "species" stat now shows the top 3 species
+   by name and population count, colored by hue. E.g., "Jera 10 Rixa 9 Pavi 5 +2".
+   Species name also appears in the creature inspector below the creature ID.
+4. Architecture: added species.js to load order between pheromones and creature.
+   10 source files total now.
+
+**Benchmark (18000 ticks):** All health checks PASS. Species consolidation
+works as expected - starts at 10 species (random initial hues), reduces to 2-3
+as dominant lineages emerge, then reseeding introduces new species during
+population floor events. Final state: 7 species with clear population leader.
+No performance regression - species tracking is lightweight (12-bucket Int32Array
+count per sample, no per-creature allocations).
+
+**Learned:** The 30-degree hue bucket approach is simple but effective. It
+matches the existing `countSpecies()` logic and creates 12 possible species -
+enough for visual diversity without being overwhelming. The stacked chart
+immediately makes speciation dynamics visible: you can watch one color expand
+while others shrink, telling a story about competition. The fixed species names
+make each bucket feel like a character in the narrative. Phase 4 is now 50%
+complete (3 of 6 items closed).
