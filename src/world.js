@@ -104,8 +104,9 @@ class World {
         if (r <= 0) { hs = this.hotspots[i]; break; }
       }
       const sp = CFG.HOTSPOT_SPREAD;
-      const fx = clamp(hs.x + gaussRand() * sp, 8, this.w - 8);
-      const fy = clamp(hs.y + gaussRand() * sp, 8, this.h - 8);
+      const margin = 35; // match creature wall repulsion zone (~30px + radius)
+      const fx = clamp(hs.x + gaussRand() * sp, margin, this.w - margin);
+      const fy = clamp(hs.y + gaussRand() * sp, margin, this.h - margin);
 
       // Reject if inside an obstacle
       let blocked = false;
@@ -117,7 +118,7 @@ class World {
       if (!blocked) return new Food(fx, fy);
     }
     // Fallback: random position
-    return new Food(rand(8, this.w - 8), rand(8, this.h - 8));
+    return new Food(rand(35, this.w - 35), rand(35, this.h - 35));
   }
 
   spawnP(x, y, hue, count, speed, life, size) {
