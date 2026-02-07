@@ -63,6 +63,7 @@
     else if (k === '2') { setSpeed(2); }
     else if (k === '4') { setSpeed(4); }
     else if (k === 't') { setSpeed(simSpeed === 16 ? 32 : 16); }
+    else if (k === 'e') { renderer.showTraits = !renderer.showTraits; }
     else if (k === 'escape') { world.selected = null; inspEl.classList.remove('visible'); }
   });
 

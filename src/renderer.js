@@ -6,6 +6,7 @@ class Renderer {
     this.tc = tc; this.mc = mc;
     this.tctx = tc.getContext('2d');
     this.mctx = mc.getContext('2d');
+    this.showTraits = false;
     this.resize();
   }
 
@@ -275,6 +276,9 @@ class Renderer {
 
     // Population graph
     this.drawGraph(ctx, world, W, H);
+
+    // Trait timeline (toggle with 'e')
+    if (this.showTraits) this.drawTraitGraph(ctx, world, W, H);
   }
 
   _renderPheromones(ctx, phGrid) {
@@ -391,6 +395,72 @@ class Renderer {
     ctx.font = '9px -apple-system, sans-serif';
     ctx.fillStyle = 'rgba(90, 120, 170, 0.25)';
     ctx.fillText('species', gX + 4, gY + 10);
+  }
+
+  drawTraitGraph(ctx, world, W, H) {
+    const hist = world.traitHistory;
+    if (hist.length < 2) return;
+    const gH = 45, gW = 240, gX = W - gW - 24, gY = H - 50 - 16 - gH - 6;
+
+    // Background
+    ctx.fillStyle = 'rgba(8, 8, 26, 0.45)';
+    ctx.fillRect(gX, gY, gW, gH);
+    ctx.strokeStyle = 'rgba(70, 70, 110, 0.15)';
+    ctx.lineWidth = 0.5;
+    ctx.strokeRect(gX, gY, gW, gH);
+
+    const n = hist.length;
+    const xStep = gW / (n - 1);
+    const pad = 3;
+    const plotH = gH - pad * 2;
+
+    // Trait definitions: key, min, max, color
+    const traits = [
+      { key: 'brain', lo: CFG.BRAIN_HIDDEN_MIN, hi: CFG.BRAIN_HIDDEN_MAX, color: '220, 160, 60' },
+      { key: 'sense', lo: CFG.SENSE_RANGE_MIN, hi: CFG.SENSE_RANGE_MAX, color: '80, 170, 220' },
+      { key: 'size',  lo: 0.5, hi: 2.0, color: '140, 140, 220' },
+      { key: 'speed', lo: 0.5, hi: 2.0, color: '100, 200, 120' },
+    ];
+
+    for (let t = 0; t < traits.length; t++) {
+      const tr = traits[t];
+      const range = tr.hi - tr.lo;
+
+      ctx.beginPath();
+      for (let i = 0; i < n; i++) {
+        const v = (hist[i][tr.key] - tr.lo) / range;
+        const y = gY + gH - pad - v * plotH;
+        if (i === 0) ctx.moveTo(gX, y);
+        else ctx.lineTo(gX + i * xStep, y);
+      }
+      ctx.strokeStyle = `rgba(${tr.color}, 0.55)`;
+      ctx.lineWidth = 1.2;
+      ctx.stroke();
+    }
+
+    // Current values on right edge
+    if (hist.length > 0) {
+      const last = hist[hist.length - 1];
+      ctx.font = '7.5px -apple-system, sans-serif';
+      ctx.textAlign = 'right';
+      const labels = [
+        { val: last.brain.toFixed(1), color: '220, 160, 60', name: 'brain' },
+        { val: Math.round(last.sense), color: '80, 170, 220', name: 'sense' },
+        { val: last.size.toFixed(2), color: '140, 140, 220', name: 'size' },
+        { val: last.speed.toFixed(2), color: '100, 200, 120', name: 'spd' },
+      ];
+      for (let i = 0; i < labels.length; i++) {
+        const ly = gY + 9 + i * 9;
+        ctx.fillStyle = `rgba(${labels[i].color}, 0.45)`;
+        ctx.fillText(labels[i].name + ' ' + labels[i].val, gX + gW - 3, ly);
+      }
+      ctx.textAlign = 'start';
+    }
+
+    // Label
+    ctx.font = '9px -apple-system, sans-serif';
+    ctx.fillStyle = 'rgba(90, 120, 170, 0.25)';
+    ctx.fillText('traits', gX + 4, gY + 10);
   }
 }
 

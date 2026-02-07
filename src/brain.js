@@ -16,7 +16,11 @@ class Brain {
 
   randomize() {
     const r = (a, s) => { for (let i = 0; i < a.length; i++) a[i] = (Math.random() - 0.5) * s; };
-    r(this.wih, 2); r(this.bh, 0.5); r(this.who, 2); r(this.bo, 0.5);
+    // Xavier/Glorot initialization: scale = 2*sqrt(6/(fan_in+fan_out))
+    // Prevents tanh saturation with high-dimensional inputs (32 inputs)
+    const wihScale = 2 * Math.sqrt(6 / (this.ni + this.nh));
+    const whoScale = 2 * Math.sqrt(6 / (this.nh + this.no));
+    r(this.wih, wihScale); r(this.bh, 0.5); r(this.who, whoScale); r(this.bo, 0.5);
     return this;
   }
 

@@ -53,6 +53,7 @@ Stores `lastInput`, `lastHidden`, `lastOutput` for the inspector.
 - Default hidden size: 12. Evolved via `genes.brainSize` (range CFG.BRAIN_HIDDEN_MIN to CFG.BRAIN_HIDDEN_MAX)
 - Weights: `wih` (input-hidden), `who` (hidden-output), `bh`, `bo` (biases)
 - `memory`: Float32Array(4) - recurrent state, zeroed in cloned/resized children
+- `randomize()` uses Xavier/Glorot initialization: scale = 2*sqrt(6/(fan_in+fan_out)). Prevents tanh saturation with 32 inputs.
 - `clone()` + `mutate(rate, amount)` for reproduction
 - `resized(newNh)` - returns a new brain with adjusted hidden layer size (shared neurons keep weights, new neurons get small random init)
 - `static crossover(a, b, targetNh)` - uniform crossover that handles different-sized parents. Shared neurons (index < min) get crossover, extra neurons copy from larger parent, beyond-both neurons get random init
@@ -182,7 +183,7 @@ Simulation state and update loop. Key methods:
 - `_generateObstacles()`: 4-7 formations of 2-5 overlapping circles each. Placement rejects positions near edges, center, hotspots, other formations.
 - `_generateCurrents()`: 2-4 current zones with random position, angle, strength, and radius.
 - `_spawnFood()`: Gaussian distribution around random weighted hotspot. Retry loop rejects positions inside obstacles (up to 10 attempts).
-- `update(audio)`: **The main simulation tick.** Order: compute day/season multipliers, drift hotspots (faster in winter) + currents, diffuse pheromones (every 4 ticks), spawn food (modulated by day+season), rebuild grids, for each creature: perceive/think/move (with obstacles+currents+pheromone grid), deposit pheromone, energy sharing (if shareOut > 0.1 and nearest creature within 20px), check eat, check predation, check reproduce (with mate search if mateOut > 0.3, fallback to asexual), check death. Then cleanup dead entities, update particles, population floor check (MIN_POP=18), record population history.
+- `update(audio)`: **The main simulation tick.** Order: compute day/season multipliers, drift hotspots (faster in winter) + currents, diffuse pheromones (every 4 ticks), spawn food (modulated by day+season), rebuild grids, for each creature: perceive/think/move (with obstacles+currents+pheromone grid), deposit pheromone, energy sharing (if shareOut > 0.1 and nearest creature within 20px), check eat, check predation, check reproduce (with mate search if mateOut > 0.3, fallback to asexual), check death. Then cleanup dead entities, update particles, population floor check (MIN_POP=21), record population + trait history.
 - `dayPhase`: Getter, returns 0-1 sine wave over DAY_PERIOD ticks.
 - `seasonPhase`: Getter, returns 0-1 sine wave over SEASON_PERIOD ticks.
 - `creatureAt(x,y)`: Hit-test for mouse selection.
@@ -197,6 +198,7 @@ Canvas drawing. Uses two canvases:
 - **Trail canvas** (behind): Semi-transparent fade with seasonal color temperature (warm amber in summer, cool blue in winter) + obstacle masking + creature position dots each frame. Creates slowly fading light trails.
 - **Main canvas** (front): Cleared each frame. Draws hotspot glows (dimmed in winter), current zone indicators (subtle glow + animated flow streaks), pheromone grid overlay (warm amber glow via offscreen canvas), obstacles (dark body + edge glow), food, creatures (body segments + signal rings + outer glow + core + heading dot + selection decorations), particles, vignette, population graph.
 - `_renderPheromones(ctx, phGrid)`: Builds RGBA image data from pheromone grid, puts it on offscreen canvas, draws scaled up with bilinear interpolation.
+- `drawTraitGraph(ctx, world, W, H)`: Line chart of evolvable trait averages (brain size, sense range, body size, speed) over time. 240x45px, positioned above species chart. Toggle via `renderer.showTraits` (key 'e').
 - `renderBrain(canvas, brain)`: Draws the neural network visualization on the inspector's canvas. Three columns (input, hidden, output) with colored connections and activation-brightness nodes.
 - Blend mode: `lighter` for simulation elements, `source-over` for UI + obstacles.
 
@@ -204,7 +206,7 @@ Canvas drawing. Uses two canvases:
 Bootstrap IIFE. Initializes Renderer, World, AudioEngine. Wires up:
 - Overlay click to start simulation
 - Speed buttons (1x, 2x, 4x | 16x, 32x time-lapse)
-- Keyboard shortcuts (space, h, m, 1/2/4, t=time-lapse toggle, escape)
+- Keyboard shortcuts (space, h, m, e=trait timeline, 1/2/4, t=time-lapse toggle, escape)
 - Mouse click (creature inspect, shift+click add creature, empty click add food)
 - Window resize
 - Inspector update (every 12 frames)

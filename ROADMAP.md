@@ -611,3 +611,61 @@ perception at current environmental complexity. The second benchmark trial
 produced the richest dynamics yet: 99 sexual births, 2 dominant species, brain
 size evolution, and mating behavior emerging. Phase 5 is now 66% complete
 (2 of 3 items, #44 niche food types remains).
+
+### Session 14 - 2026-02-07
+**Built:** Evolution reliability fix (#48) and evolutionary trait timeline (#45).
+
+1. Evolution reliability fix: Three changes to eliminate the bimodal churn/breakout
+   pattern that caused ~40% of runs to stall at gen 5:
+   - **Xavier/Glorot brain initialization**: Replaced fixed weight scale (uniform
+     [-1, 1]) with Xavier scaling (2*sqrt(6/(fan_in+fan_out))). For the 32-input
+     brain, wih weights now initialize in [-0.37, 0.37] instead of [-1, 1]. This
+     prevents tanh saturation - with the old scale, pre-activation sums had stddev
+     ~1.9, deep in tanh saturation where mutations barely affect output (derivative
+     ~0.07). Xavier keeps neurons in tanh's linear regime (derivative ~0.5), making
+     mutations 7x more effective at changing behavior.
+   - **85% survivor reseeding** (was 50%): When the population floor triggers,
+     85% of reseeded creatures are mutated offspring of the best survivors instead
+     of 50%. This preserves evolved behavior during population crashes. The 15%
+     random creatures provide genetic diversity for exploration.
+   - **Hotspot-based reseeding spawn**: Reseeded creatures now spawn near random
+     food hotspots (gaussian distribution, same spread as food) instead of random
+     positions. This dramatically reduces early starvation death, giving both
+     evolved and random creatures a better chance of finding food.
+
+2. Evolutionary trait timeline (#45): Small line chart showing running averages of
+   evolvable traits over time (brain size, sense range, body size, speed). Positioned
+   above the species chart, same width (240x45px). Four colored lines: brain (orange),
+   sense (cyan), size (blue-purple), speed (green). Current values displayed on right
+   edge. Toggle with 'e' key. Samples alongside popHistory every 10 ticks (600-entry
+   history matching species tracker).
+
+**Benchmark methodology:** Systematic A/B testing of 7 intervention variants, each
+with 5-10 runs at 18000 ticks. Tested: Xavier alone (5/5), Xavier+sparse (4/5, worse),
+Xavier+lower mutation (3/5, worse), Xavier+75% survivor (5/5, 4/5 at gen>15),
+Xavier+85% survivor (5/5, 5/5 at gen>15), Xavier+85%+1.0x reseed mutation (10/10,
+10/10 at gen>15 but low births), Xavier+85%+hotspot spawn (10/10, 10/10 at gen>15,
+209 avg births). The final variant was validated with two independent 10-run trials.
+
+**Final results (10-run validation, 18K ticks each):**
+```
+Baseline (before):  gen 16.1 +/- 10.9 [5, 45],  139 births,  ~60% pass at gen>15
+Final (after):      gen 38.6 +/- 8.3  [20, 51],  209 births,  100% pass at gen>15
+```
+All four success criteria from #48 met:
+- Pass rate >= 90% at gen>15: 100% (was ~60%)
+- Mean final generation >= 20: 38.6 (was 16.1)
+- Mean total births >= 200: 209 (was 139)
+- Gen stddev: 8.3 (was 10.9, 24% reduction; CV improved 67% to 22%)
+
+**Learned:** The biggest insight is that tanh saturation with high-dimensional
+inputs is the root cause of evolution unreliability, not parameter count per se.
+With 32 inputs and uniform [-1, 1] weights, all hidden neurons are saturated,
+making random brains behaviorally identical (all outputs near +1 or -1). Xavier
+init creates genuine behavioral diversity in the initial population, giving
+selection something meaningful to work with. The reseeding changes amplify this:
+more survivor offspring preserve the small advantages that Xavier-differentiated
+brains discover, and hotspot spawning gives them food access to survive on.
+Interestingly, lower mutation rates made things worse despite Xavier weights being
+smaller - evolution needs aggressive mutation to explore the weight space, and
+Xavier prevents the old problem of mutations being ineffective due to saturation.

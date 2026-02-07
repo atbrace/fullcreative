@@ -13,6 +13,7 @@ class World {
     this.currents = [];
     this.tick = 0; this.births = 0; this.sexualBirths = 0; this.deaths = 0; this.maxGen = 0;
     this.popHistory = [];
+    this.traitHistory = []; // [{brain, sense, size, speed}] sampled every 10 ticks
     this.speciesTracker = new SpeciesTracker();
     this.eventLog = new EventLog();
     this.paused = false;
@@ -266,15 +267,19 @@ class World {
       const alive = this.creatures.filter(c => c.alive);
       alive.sort((a, b) => b.energy - a.energy);
       for (let i = 0; i < needed; i++) {
+        // Spawn near a random food hotspot for better survival odds
         let x, y, ok;
         do {
-          x = rand(40, this.w - 40); y = rand(40, this.h - 40); ok = true;
+          const hs = this.hotspots[randInt(0, this.hotspots.length)];
+          x = clamp(hs.x + gaussRand() * CFG.HOTSPOT_SPREAD, 40, this.w - 40);
+          y = clamp(hs.y + gaussRand() * CFG.HOTSPOT_SPREAD, 40, this.h - 40);
+          ok = true;
           for (let j = 0; j < this.obstacles.length; j++) {
             if (this.obstacles[j].pos.dist({ x, y }) < this.obstacles[j].radius + 15) { ok = false; break; }
           }
         } while (!ok);
-        // 50% mutated offspring of best survivors, 50% random (genetic diversity)
-        if (alive.length > 0 && Math.random() < 0.5) {
+        // 85% mutated offspring of best survivors, 15% random (genetic diversity)
+        if (alive.length > 0 && Math.random() < 0.85) {
           const parent = alive[i % alive.length];
           const childBrainSize = Creature._mutateBrainSize(parent.genes.brainSize);
           const genes = {
@@ -297,6 +302,15 @@ class World {
       this.popHistory.push(this.creatures.length);
       if (this.popHistory.length > 600) this.popHistory.shift();
       this.speciesTracker.update(this.creatures, this.tick);
+      // Trait averages for trait timeline
+      const nc = this.creatures.length || 1;
+      let tb = 0, ts = 0, tsz = 0, tsp = 0;
+      for (let i = 0; i < this.creatures.length; i++) {
+        const g = this.creatures[i].genes;
+        tb += g.brainSize; ts += g.senseRange; tsz += g.size; tsp += g.speedGene;
+      }
+      this.traitHistory.push({ brain: tb / nc, sense: ts / nc, size: tsz / nc, speed: tsp / nc });
+      if (this.traitHistory.length > 600) this.traitHistory.shift();
     }
     if (this.tick % 30 === 0) audio.setPopulation(this.creatures.length);
     this.eventLog.check(this);
