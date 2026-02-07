@@ -12,6 +12,7 @@ class World {
     this.obstacles = [];
     this.currents = [];
     this.tick = 0; this.births = 0; this.sexualBirths = 0; this.deaths = 0; this.maxGen = 0;
+    this.recentPredations = 0;
     this.popHistory = [];
     this.traitHistory = []; // [{brain, sense, size, speed}] sampled every 10 ticks
     this.speciesTracker = new SpeciesTracker();
@@ -215,6 +216,7 @@ class World {
       const inp = c.perceive(this.foodGrid, this.creatureGrid, this.obstacles, this.phGrid);
       c.think(inp);
       c.move(this.w, this.h, this.obstacles, this.currents);
+      if (c.huntCooldown > 0) c.huntCooldown--;
 
       // Deposit species-scented pheromone at current position
       this.phGrid.deposit(c.pos.x, c.pos.y, CFG.PH_DEPOSIT, Math.floor(c.genes.hue / 30) % 12);
@@ -250,18 +252,37 @@ class World {
         }
       }
 
-      // Predation
-      const nc = this.creatureGrid.query(c.pos.x, c.pos.y, c.radius * CFG.PREDATION_RANGE);
-      for (let j = 0; j < nc.length; j++) {
-        const prey = nc[j];
-        if (prey.id === c.id || !prey.alive) continue;
-        if (c.radius > prey.radius * CFG.PREDATION_RATIO && c.pos.dist(prey.pos) < c.radius + prey.radius * CFG.PREDATION_STRIKE) {
-          prey.alive = false;
-          c.energy = Math.min(c.energy + prey.energy * CFG.PREDATION_EFFICIENCY, CFG.ENERGY_MAX);
-          this.spawnP(prey.pos.x, prey.pos.y, prey.genes.hue, 12, 2.5, 35, 2);
-          this.deaths++;
-          this.eventLog.notifyPredation();
-          audio.predationSweep();
+      // Predation (skip if on hunt cooldown)
+      if (c.huntCooldown <= 0) {
+        const nc = this.creatureGrid.query(c.pos.x, c.pos.y, c.radius * CFG.PREDATION_RANGE);
+        for (let j = 0; j < nc.length; j++) {
+          const prey = nc[j];
+          if (prey.id === c.id || !prey.alive) continue;
+          if (c.pos.dist(prey.pos) >= c.radius + prey.radius * CFG.PREDATION_STRIKE) continue;
+
+          // Kin proximity defense: nearby kin make prey harder to eat
+          let effectiveRatio = CFG.PREDATION_RATIO;
+          const kinNearby = this.creatureGrid.query(prey.pos.x, prey.pos.y, CFG.KIN_DEFENSE_RANGE);
+          let kinCount = 0;
+          const preyBucket = Math.floor(prey.genes.hue / 30) % 12;
+          for (let k = 0; k < kinNearby.length; k++) {
+            const ally = kinNearby[k];
+            if (ally.id === prey.id || ally.id === c.id || !ally.alive) continue;
+            if (Math.floor(ally.genes.hue / 30) % 12 === preyBucket) kinCount++;
+          }
+          effectiveRatio += Math.min(kinCount * CFG.KIN_DEFENSE_PER_KIN, CFG.KIN_DEFENSE_MAX);
+
+          if (c.radius > prey.radius * effectiveRatio) {
+            prey.alive = false;
+            c.energy = Math.min(c.energy + prey.energy * CFG.PREDATION_EFFICIENCY, CFG.ENERGY_MAX);
+            this.spawnP(prey.pos.x, prey.pos.y, prey.genes.hue, 12, 2.5, 35, 2);
+            this.deaths++;
+            this.recentPredations++;
+            this.eventLog.notifyPredation();
+            audio.predationSweep();
+            c.huntCooldown = CFG.HUNT_COOLDOWN;
+            break; // one kill per tick per predator
+          }
         }
       }
 
@@ -356,6 +377,15 @@ class World {
       if (this.traitHistory.length > 600) this.traitHistory.shift();
     }
     if (this.tick % 30 === 0) audio.setPopulation(this.creatures.length);
+    if (this.tick % 60 === 0) {
+      audio.setEcosystemState({
+        population: this.creatures.length,
+        speciesCount: this.countSpecies(),
+        predationRate: this.recentPredations / 60,
+        era: this.eventLog.era,
+      });
+      this.recentPredations = 0;
+    }
     this.eventLog.check(this);
   }
 

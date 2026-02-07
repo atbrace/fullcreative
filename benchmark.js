@@ -47,7 +47,7 @@ async function runSingle(browser, runIndex) {
       const w = window.__world;
       const silentAudio = {
         eatClick() {}, birthPing() {}, deathThud() {},
-        predationSweep() {}, setPopulation() {}
+        predationSweep() {}, setPopulation() {}, setEcosystemState() {}
       };
 
       const snapshots = [];

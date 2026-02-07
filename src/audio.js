@@ -23,10 +23,10 @@ class AudioEngine {
     this._osc(82.5, 'sine', this.droneGain, 0.45);
     this._osc(110, 'sine', this.droneGain, 0.2);
 
-    const lfo = this.ctx.createOscillator();
+    this.lfo = this.ctx.createOscillator();
     const lg = this.ctx.createGain();
-    lfo.type = 'sine'; lfo.frequency.value = 0.06; lg.gain.value = 90;
-    lfo.connect(lg); lg.connect(this.filter.frequency); lfo.start();
+    this.lfo.type = 'sine'; this.lfo.frequency.value = 0.06; lg.gain.value = 90;
+    this.lfo.connect(lg); lg.connect(this.filter.frequency); this.lfo.start();
     this.started = true;
   }
 
@@ -85,6 +85,31 @@ class AudioEngine {
     if (!this.started) return;
     const v = clamp(Math.sqrt(pop / 80) * 0.065, 0.02, 0.14);
     this.droneGain.gain.setTargetAtTime(v, this.ctx.currentTime, 1.0);
+  }
+
+  setEcosystemState(state) {
+    if (!this.started) return;
+    const t = this.ctx.currentTime;
+
+    // Filter cutoff: population health + species diversity -> brightness
+    const popFactor = clamp(state.population / 80, 0.2, 1.5);
+    const specFactor = clamp(state.speciesCount / 6, 0.3, 1.5);
+    const targetFreq = 180 + 120 * popFactor + 40 * specFactor;
+    this.filter.frequency.setTargetAtTime(targetFreq, t, 3.0);
+
+    // LFO rate: predation intensity -> faster pulsing = tension
+    const targetLFO = 0.04 + clamp(state.predationRate, 0, 0.3) * 0.4;
+    this.lfo.frequency.setTargetAtTime(targetLFO, t, 2.0);
+
+    // Filter Q: era-dependent resonance (higher = more tense/focused)
+    let targetQ = 0.8;
+    if (state.era) {
+      if (state.era.includes('Famine')) targetQ = 3.0;
+      else if (state.era.includes('Bloom')) targetQ = 0.4;
+      else if (state.era.includes('Dominion')) targetQ = 1.5;
+      else if (state.era.includes('Scholars')) targetQ = 1.2;
+    }
+    this.filter.Q.setTargetAtTime(targetQ, t, 4.0);
   }
 
   toggleMute() {

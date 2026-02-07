@@ -19,6 +19,7 @@ class Creature {
     this.radius = CFG.BASE_RADIUS * this.genes.size;
     this.shareOut = 0;
     this.mateOut = 0;
+    this.huntCooldown = 0;
     this.body = []; // trailing body positions
     this._nfPos = null; // nearest food position (for viz)
     this._ncPos = null; // nearest creature position (for viz)

@@ -76,7 +76,7 @@ async function runSingle(browser, configName, patches, runIndex) {
       const w = window.__world;
       const silentAudio = {
         eatClick() {}, birthPing() {}, deathThud() {},
-        predationSweep() {}, setPopulation() {}
+        predationSweep() {}, setPopulation() {}, setEcosystemState() {}
       };
       const snaps = [];
       for (let i = 0; i < batchTicks; i++) {

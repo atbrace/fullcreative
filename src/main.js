@@ -23,7 +23,8 @@
   // Silent audio proxy for time-lapse speeds - keeps drone, mutes events
   const timelapsAudio = {
     eatClick() {}, birthPing() {}, deathThud() {}, predationSweep() {},
-    setPopulation(p) { audio.setPopulation(p); }
+    setPopulation(p) { audio.setPopulation(p); },
+    setEcosystemState(s) { audio.setEcosystemState(s); }
   };
 
   // --- Start ---

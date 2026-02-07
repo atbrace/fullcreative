@@ -817,3 +817,74 @@ predation to matter (~10%) but not so much that size growth becomes the only via
 strategy. The era system immediately transformed the viewing experience - watching
 "Cambrian Bloom" give way to "Dominion of Kora" and then "The Scholars" tells a story
 about what's happening without reading any numbers.
+
+### Session 17 - 2026-02-06
+**Built:** Kin proximity defense (#52), hunt cooldown (#53), ecosystem-reactive
+ambient audio (#56) - social pressure and audio atmosphere features.
+
+1. **Kin proximity defense bonus (#52):** Creatures near kin (same species hue
+   bucket) are harder to eat. When a predation attempt occurs, the system counts
+   nearby kin within 80px of the prey. Each kin increases the effective predation
+   ratio by 0.03 (capped at +0.15). This means lone creatures are vulnerable
+   (ratio 1.18) while grouped creatures are protected (ratio up to 1.33 with 5+
+   kin). Creates direct survival advantage for group formation without requiring
+   explicit group-seeking brain outputs - creatures benefit from spatial proximity
+   to same-species neighbors.
+
+2. **Hunt cooldown (#53):** After a successful kill, a predator can't hunt again
+   for 90 ticks (1.5 seconds at 60fps). Also added "break" after kill so each
+   predator processes at most one predation event per update tick. Prevents
+   chain-killing and makes predation a discrete event rather than continuous
+   pressure. In practice, this rarely limits predation since hunting is already
+   opportunity-limited (predators don't encounter prey every 90 ticks).
+
+3. **Ecosystem-reactive ambient audio (#56):** The background drone now responds
+   to simulation state via three audio parameters:
+   - Filter cutoff (brightness): driven by population health + species diversity.
+     Low population/few species = muffled, dark drone. Thriving diverse
+     ecosystem = brighter, more present sound.
+   - LFO rate (tension): driven by predation intensity. More kills = faster
+     pulsing in the filter sweep, creating subconscious unease.
+   - Filter Q (resonance): driven by era type. Famine = high Q (resonant,
+     tense). Bloom = low Q (smooth, peaceful). Dominion = moderate focus.
+   All transitions use smooth exponential ramps (3-4 second time constants)
+   so changes are felt rather than heard. Passed through the time-lapse
+   audio proxy so the drone reacts even at 32x speed.
+
+**Tuning journey:** Initial kin defense parameters (range=50, per_kin=0.015,
+max=0.10) were too subtle - at typical creature density, ~0.3 neighbors within
+50px, and per-kin bonus was negligible. 10-run benchmark showed zero measurable
+effect on predation or behavioral diversity. Increased to range=80, per_kin=0.03,
+max=0.15 which created measurable impact.
+
+**Final benchmark (5 runs x 54K ticks):**
+```
+Predation % deaths:   7.24% (was 9.56% baseline - 26% reduction in kills)
+Max oldest:         115.8s (was 95.9s baseline - +21%)
+Share output var:     0.08 (was 0.06 - +33%)
+Mate output var:      0.12 (was 0.10 - +20%)
+Brain evolution:     DOWN (-0.19) (was DOWN -0.55 - stabilized near flat)
+Body size:           UP (+0.38)
+Speed:               UP (+0.11)
+Sense range:        DOWN (-19.37) (creatures evolving shorter range)
+Pass rate:           5/5
+```
+
+**Learned:** Kin defense creates conditions for social behavior (spatial grouping)
+but doesn't directly reward it. Share and mate variance improved modestly because
+grouped creatures are physically close enough for sharing/mating to occur more
+often. But the defense is passive - creatures benefit from proximity regardless
+of their social outputs. The next frontier (#57) is making the defense scale with
+active social behavior (e.g. share output), which would directly reward using
+the share output strategically.
+
+The hunt cooldown has minimal quantitative impact because predation is already
+opportunity-limited, not rate-limited. Its value is qualitative: it prevents the
+rare scenario where a large predator enters a dense cluster and chain-kills
+multiple creatures in rapid succession.
+
+The ecosystem-reactive audio is the highest spectator-value change per line of
+code this session. Three audio parameter modulations (filter cutoff, LFO rate,
+filter Q) create a soundscape that unconsciously mirrors the simulation state.
+Watching a famine unfold while the drone becomes darker and more resonant is
+a genuinely atmospheric experience.

@@ -28,6 +28,13 @@ const CFG = {
   PREDATION_RANGE: 6,           // query radius multiplier (creature.radius * N)
   PREDATION_STRIKE: 1.0,        // strike distance: c.radius + prey.radius * N
   PREDATION_EFFICIENCY: 0.55,
+  HUNT_COOLDOWN: 90,              // ticks after a kill before can hunt again
+
+  // Kin proximity defense
+  KIN_DEFENSE_RANGE: 80,          // radius to count nearby kin for defense
+  KIN_DEFENSE_PER_KIN: 0.03,     // predation ratio increase per nearby kin
+  KIN_DEFENSE_MAX: 0.15,         // cap on total kin defense bonus
+
   REPRODUCE_KEEP: 0.45,
   REPRODUCE_GIVE: 0.32,
   BODY_SEGMENTS: 5,

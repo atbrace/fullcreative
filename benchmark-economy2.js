@@ -46,7 +46,7 @@ async function runSingle(browser, configName, patches, runIndex) {
     const batchTicks = Math.min(BATCH_SIZE, TOTAL_TICKS - tick);
     const batch = await page.evaluate(({ batchTicks, sampleInterval, currentTick }) => {
       const w = window.__world;
-      const sa = { eatClick(){}, birthPing(){}, deathThud(){}, predationSweep(){}, setPopulation(){} };
+      const sa = { eatClick(){}, birthPing(){}, deathThud(){}, predationSweep(){}, setPopulation(){}, setEcosystemState(){} };
       const snaps = [];
       for (let i = 0; i < batchTicks; i++) {
         w.update(sa);

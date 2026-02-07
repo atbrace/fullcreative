@@ -26,7 +26,7 @@ async function runTrial(browser, label, setupFn) {
     const batchTicks = Math.min(BATCH, TOTAL_TICKS - tick);
     const result = await page.evaluate(({ batchTicks, sampleInterval, currentTick }) => {
       const w = window.__world;
-      const audio = { eatClick(){}, birthPing(){}, deathThud(){}, predationSweep(){}, setPopulation(){} };
+      const audio = { eatClick(){}, birthPing(){}, deathThud(){}, predationSweep(){}, setPopulation(){}, setEcosystemState(){} };
       const snaps = [];
       for (let i = 0; i < batchTicks; i++) {
         w.update(audio);

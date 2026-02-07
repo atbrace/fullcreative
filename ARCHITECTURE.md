@@ -185,7 +185,7 @@ Simulation state and update loop. Key methods:
 - `_generateObstacles()`: 4-7 formations of 2-5 overlapping circles each. Placement rejects positions near edges, center, hotspots, other formations.
 - `_generateCurrents()`: 2-4 current zones with random position, angle, strength, and radius.
 - `_spawnFood()`: Gaussian distribution around random weighted hotspot. Retry loop rejects positions inside obstacles (up to 10 attempts).
-- `update(audio)`: **The main simulation tick.** Order: compute day/season multipliers, drift hotspots (faster in winter) + currents, diffuse pheromones (every 4 ticks), spawn food (modulated by day+season), rebuild grids, for each creature: perceive/think/move (with obstacles+currents+pheromone grid), deposit pheromone, energy sharing (if shareOut > 0.1 and nearest creature within 20px), check eat, check predation, check reproduce (with mate search if mateOut > 0.3, fallback to asexual), check death. Then cleanup dead entities, update particles, population floor check (MIN_POP=21), record population + trait history.
+- `update(audio)`: **The main simulation tick.** Order: compute day/season multipliers, drift hotspots (faster in winter) + currents, diffuse pheromones (every 4 ticks), spawn food (modulated by day+season), rebuild grids, for each creature: perceive/think/move (with obstacles+currents+pheromone grid), decrement hunt cooldown, deposit pheromone, energy sharing (if shareOut > 0.1 and nearest creature within 20px), check eat, check predation (with kin defense bonus + hunt cooldown gate), check reproduce (with mate search if mateOut > 0.3, fallback to asexual), check death. Then cleanup dead entities, update particles, population floor check (MIN_POP=21), record population + trait history, ecosystem audio state (every 60 ticks).
 - `dayPhase`: Getter, returns 0-1 sine wave over DAY_PERIOD ticks.
 - `seasonPhase`: Getter, returns 0-1 sine wave over SEASON_PERIOD ticks.
 - `creatureAt(x,y)`: Hit-test for mouse selection.
@@ -194,6 +194,8 @@ Simulation state and update loop. Key methods:
 Web Audio API. Drone: 4 detuned sine oscillators through low-pass filter with
 LFO. Events: `birthPing()` (pentatonic sine), `eatClick()` (high sine),
 `deathThud()` (low sine), `predationSweep()` (descending sawtooth).
+- `setPopulation(pop)`: Modulates drone gain by population (every 30 ticks).
+- `setEcosystemState(state)`: Modulates filter cutoff (population + species diversity), LFO rate (predation intensity), and filter Q (era type). Smooth exponential ramps with 2-4s time constants. Called every 60 ticks.
 
 ### src/renderer.js
 Canvas drawing. Uses two canvases:
