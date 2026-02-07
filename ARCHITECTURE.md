@@ -94,6 +94,8 @@ Species identification and population tracking.
 Ecosystem narrative event detection and display.
 - **EventLog** class:
   - `check(world)`: Called every tick. Detects species extinction (population drops from >= 3 to 0), species emergence (rises from 0 to >= 2), population boom/crash (>50%/<60% change over 100 ticks), season changes, predation sprees (>= 5 kills in 120 ticks), and generation milestones (10, 25, 50, 100, 200, 500, 1000).
+  - `_updateEra(world, counts, hues)`: Called every 60 ticks. Sliding window of 30 samples detects named eras: Dominion of [Species] (>55% pop), Famine (<27 pop), Cambrian Bloom (5+ rich species), The Scholars (brain>13), Age of Giants (size>1.65), The Swift (speed>1.4), Far Sight (sense>150). 10-second hysteresis prevents flicker.
+  - `era` / `eraHue`: Current era name and color hue. Read by main.js for stats display.
   - `notifyPredation()`: Called from world on each predation kill. Accumulates count for spree detection.
   - `add(type, text, hue)`: Pushes a new event with real-time timestamp.
   - `getVisible()`: Returns events with computed fade opacity (400ms fade-in, 5s visible, 3s fade-out). Max 6 visible at once.

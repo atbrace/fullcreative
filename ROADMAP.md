@@ -199,6 +199,23 @@ the same thing.
 sparse brain init) stashed. The three pillars (kin pheromones, sensory range, niche
 food) create genuine strategic diversity.
 
+### Post-Phase 5: Behavioral Pressure
+*Creating selection pressure for complex behavior.*
+
+The simulation has rich infrastructure (32-input brain, pheromones, signals, sharing,
+mating) but creatures mostly just forage. This phase addresses the missing link:
+selection pressure that rewards using the brain's social/perceptual capabilities.
+
+**Completed:**
+- Predation pressure tuning (2026-02-06): PREDATION_RATIO 1.35->1.18,
+  PREDATION_RANGE 2.5->6, PREDATION_STRIKE 0.5->1.0, PREDATION_EFFICIENCY
+  0.45->0.55. Predation doubled to ~10% of deaths. Brain evolution reversed
+  direction (now evolves UP). Share/mate variance improved +43%/+18%.
+- Era detection and ecosystem storytelling (2026-02-06): 7 named eras with
+  30-sample sliding window and 10-second hysteresis. Displayed in stats panel.
+- Brain complexity visual indicator (2026-02-06): Heading dot scales with
+  brainSize gene. Glow halo for brain > 14.
+
 ### Phase 6: The Long Dream (far future)
 *Aspirational features. May never be built. That's fine.*
 
@@ -748,3 +765,55 @@ Share/mate behavioral diversity remains the outstanding challenge. Low variance 
 sharing and mating outputs suggests creatures haven't evolved strategic social
 behavior. This likely requires either new brain architecture or new mechanics that
 create direct fitness advantages for social coordination. Future work, not this session.
+
+### Session 16 - 2026-02-06
+**Built:** Predation pressure tuning (#47), era detection (#50), brain complexity
+visual indicator (#46) - post-Phase-5 behavioral pressure features.
+
+1. **Predation pressure tuning (#47):** Systematic A/B testing of predation parameters.
+   Discovered the root cause of low predation (5.58% of deaths): at evolved body size
+   ~1.65, the old ratio (1.35) meant predators needed size > 2.06 - above the gene max
+   of 2.0. Average creatures were literally immune to predation. Final tuning:
+   - PREDATION_RATIO: 1.35 -> 1.18 (wider predator-prey pairs)
+   - PREDATION_RANGE: 2.5 -> 6 (wider search radius, new config param)
+   - PREDATION_STRIKE: 0.5 -> 1.0 (wider contact distance, new config param)
+   - PREDATION_EFFICIENCY: 0.45 -> 0.55 (hunting more rewarding)
+   - Tested and rejected speed-based escape mechanic - it caused creatures to solve
+     predation with raw physics (be fast) instead of cognitive responses (detect threats),
+     resulting in brain size and sense range both evolving DOWN.
+   - Tested ratios 1.25, 1.18, 1.15. Ratio 1.18 produced the best behavioral diversity:
+     sense range evolved UP (+14), turn variance 0.56, speed variance 0.53.
+   Key result: **brain size reversed from evolving DOWN (-0.18) to UP (+0.59)** under
+   predation pressure. Predation kills ~3.5x baseline. Share variance +43%, mate
+   variance +18%. 5/5 pass rate.
+
+2. **Era detection system (#50):** Sliding window pattern detection (30 samples of 60
+   ticks each = 30 seconds) with 10-second hysteresis. Seven era types:
+   - "Dominion of [Species]" - one species >55% population (highest priority)
+   - "Famine" - avg population < 27
+   - "Cambrian Bloom" - 5+ species with 3+ members each
+   - "The Scholars" - avg brain size > 13
+   - "Age of Giants" - avg body size > 1.65
+   - "The Swift" - avg speed gene > 1.4
+   - "Far Sight" - avg sense range > 150
+   Eras display in the stats panel and fire event log transitions. Creates narrative
+   progression: Cambrian Bloom -> Dominion of X -> The Scholars as evolution unfolds.
+
+3. **Brain complexity visual indicator (#46):** Heading dot ("eye") on creature body
+   scales from 0.18x to 0.40x radius based on brainSize gene. Creatures with brain
+   size > 14 get a subtle glow halo around the eye. Makes cognitive evolution visible
+   at a glance without inspecting individual creatures.
+
+**Validated benchmark (5 runs x 54K ticks):** All 5/5 PASS. Predation 9.56% of deaths
+(~295 kills avg), generation 96.4, body size +0.47, speed +0.27. No regressions.
+
+**Learned:** The most important finding is the interaction between predation pressure
+and evolutionary strategy. Speed-based escape creates a pure physics solution (be big
+and fast), while proximity-based predation creates cognitive pressure (detect threats,
+navigate safely). This distinction is critical: the mechanic design determines whether
+evolution produces interesting brain-based behavior or boring size/speed optimization.
+The ratio 1.18 sweet spot (vs 1.15 or 1.25) emerged from balancing two forces: enough
+predation to matter (~10%) but not so much that size growth becomes the only viable
+strategy. The era system immediately transformed the viewing experience - watching
+"Cambrian Bloom" give way to "Dominion of Kora" and then "The Scholars" tells a story
+about what's happening without reading any numbers.

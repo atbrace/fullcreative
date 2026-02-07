@@ -24,8 +24,10 @@ const CFG = {
   METABOLISM_SIZE_EXP: 1.2,
   VISION_RANGE: 130,
   EAT_RANGE: 8,
-  PREDATION_RATIO: 1.35,
-  PREDATION_EFFICIENCY: 0.45,
+  PREDATION_RATIO: 1.18,
+  PREDATION_RANGE: 6,           // query radius multiplier (creature.radius * N)
+  PREDATION_STRIKE: 1.0,        // strike distance: c.radius + prey.radius * N
+  PREDATION_EFFICIENCY: 0.55,
   REPRODUCE_KEEP: 0.45,
   REPRODUCE_GIVE: 0.32,
   BODY_SEGMENTS: 5,

@@ -223,11 +223,19 @@ class Renderer {
       ctx.fillStyle = cGrad;
       ctx.beginPath(); ctx.arc(c.pos.x, c.pos.y, rad, 0, 6.283); ctx.fill();
 
-      // Heading dot
+      // Heading dot - size scales with brain complexity
       const hx = c.pos.x + Math.cos(c.heading) * rad * 0.6;
       const hy = c.pos.y + Math.sin(c.heading) * rad * 0.6;
+      const brainFrac = (c.genes.brainSize - CFG.BRAIN_HIDDEN_MIN) / (CFG.BRAIN_HIDDEN_MAX - CFG.BRAIN_HIDDEN_MIN);
+      const eyeR = rad * (0.18 + brainFrac * 0.22);
+      // Glow for large brains (brainSize > 14)
+      if (brainFrac > 0.625) {
+        const ga = (brainFrac - 0.625) * 1.6;
+        ctx.fillStyle = `hsla(${hue}, 85%, ${Math.min(light + 40, 95)}%, ${ga * 0.3})`;
+        ctx.beginPath(); ctx.arc(hx, hy, eyeR * 2.5, 0, 6.283); ctx.fill();
+      }
       ctx.fillStyle = `hsla(${hue}, 90%, ${Math.min(light + 35, 95)}%, 0.85)`;
-      ctx.beginPath(); ctx.arc(hx, hy, rad * 0.25, 0, 6.283); ctx.fill();
+      ctx.beginPath(); ctx.arc(hx, hy, eyeR, 0, 6.283); ctx.fill();
 
       // --- Selection decorations ---
       if (world.selected === c) {

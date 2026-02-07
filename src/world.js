@@ -251,11 +251,11 @@ class World {
       }
 
       // Predation
-      const nc = this.creatureGrid.query(c.pos.x, c.pos.y, c.radius * 2.5);
+      const nc = this.creatureGrid.query(c.pos.x, c.pos.y, c.radius * CFG.PREDATION_RANGE);
       for (let j = 0; j < nc.length; j++) {
         const prey = nc[j];
         if (prey.id === c.id || !prey.alive) continue;
-        if (c.radius > prey.radius * CFG.PREDATION_RATIO && c.pos.dist(prey.pos) < c.radius + prey.radius * 0.5) {
+        if (c.radius > prey.radius * CFG.PREDATION_RATIO && c.pos.dist(prey.pos) < c.radius + prey.radius * CFG.PREDATION_STRIKE) {
           prey.alive = false;
           c.energy = Math.min(c.energy + prey.energy * CFG.PREDATION_EFFICIENCY, CFG.ENERGY_MAX);
           this.spawnP(prey.pos.x, prey.pos.y, prey.genes.hue, 12, 2.5, 35, 2);

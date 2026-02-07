@@ -156,6 +156,11 @@
     const sp = world.seasonPhase;
     const seasonName = sp > 0.75 ? 'summer' : sp > 0.5 ? 'spring' : sp > 0.25 ? 'autumn' : 'winter';
     document.getElementById('s-season').textContent = seasonName;
+    const eraEl = document.getElementById('s-era');
+    eraEl.textContent = world.eventLog.era || '--';
+    eraEl.style.color = world.eventLog.era
+      ? 'hsl(' + world.eventLog.eraHue + ',45%,55%)'
+      : '';
     document.getElementById('s-time').textContent = min + ':' + sec;
   }
 
@@ -170,6 +175,7 @@
       case 'season':     return 'hsl(' + h + ',35%,50%)';
       case 'predation':  return 'hsl(' + h + ',55%,50%)';
       case 'milestone':  return 'hsl(' + h + ',40%,55%)';
+      case 'era':        return 'hsl(' + h + ',50%,58%)';
       default:           return 'hsl(' + h + ',40%,50%)';
     }
   }

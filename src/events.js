@@ -12,6 +12,16 @@ class EventLog {
     this._lastGenMilestone = 0;
     this._cooldowns = {};
     this._ready = false;
+
+    // Era detection state
+    this.era = '';              // current era name
+    this.eraHue = 0;           // current era color hue
+    this._eraWindow = [];      // sliding window of snapshots
+    this._eraDeaths = 0;       // deaths in current window period
+    this._eraPredKills = 0;    // predation kills in current window period
+    this._prevDeaths = 0;      // deaths at last era sample
+    this._prevPredKills = 0;   // predation kills at last era sample
+    this._eraHoldTicks = 0;    // ticks remaining to hold current era before change
   }
 
   _canFire(key) {
@@ -115,6 +125,117 @@ class EventLog {
 
     // Save state for next comparison
     for (let b = 0; b < 12; b++) this._prevBuckets[b] = counts[b];
+
+    // --- Era detection (every 60 ticks = ~1 second) ---
+    if (tick % 60 === 0) this._updateEra(world, counts, hues);
+  }
+
+  _updateEra(world, counts, hues) {
+    // Sample current state
+    const pop = world.creatures.length;
+    const n = pop || 1;
+    let totalSize = 0, totalSpeed = 0, totalBrain = 0, totalSense = 0;
+    for (let i = 0; i < world.creatures.length; i++) {
+      const g = world.creatures[i].genes;
+      totalSize += g.size;
+      totalSpeed += g.speedGene;
+      totalBrain += g.brainSize;
+      totalSense += g.senseRange;
+    }
+
+    // Predation rate: use delta since last sample
+    const deaths = world.deaths - this._prevDeaths;
+    const predKills = this._eraPredKills - this._prevPredKills + (world.deaths > this._prevDeaths ? 0 : 0);
+    // Track via the notifyPredation counter
+    const windowDeaths = world.deaths - this._prevDeaths;
+    this._prevDeaths = world.deaths;
+
+    // Count species with 3+ members
+    let richSpecies = 0;
+    let dominantBucket = -1, dominantCount = 0, totalPop = 0;
+    for (let b = 0; b < 12; b++) {
+      if (counts[b] >= 3) richSpecies++;
+      totalPop += counts[b];
+      if (counts[b] > dominantCount) { dominantCount = counts[b]; dominantBucket = b; }
+    }
+
+    this._eraWindow.push({
+      avgSize: totalSize / n,
+      avgSpeed: totalSpeed / n,
+      avgBrain: totalBrain / n,
+      avgSense: totalSense / n,
+      pop,
+      richSpecies,
+      dominantPct: totalPop > 0 ? dominantCount / totalPop : 0,
+      dominantBucket,
+    });
+    if (this._eraWindow.length > 30) this._eraWindow.shift();
+    if (this._eraWindow.length < 5) return; // need minimum data
+
+    // Compute window averages
+    const w = this._eraWindow;
+    const wn = w.length;
+    let wSize = 0, wSpeed = 0, wBrain = 0, wSense = 0, wPop = 0;
+    let wRich = 0, wDomPct = 0, wDomBucket = -1, domBucketCounts = new Int32Array(12);
+    for (let i = 0; i < wn; i++) {
+      wSize += w[i].avgSize;
+      wSpeed += w[i].avgSpeed;
+      wBrain += w[i].avgBrain;
+      wSense += w[i].avgSense;
+      wPop += w[i].pop;
+      wRich += w[i].richSpecies;
+      wDomPct += w[i].dominantPct;
+      if (w[i].dominantBucket >= 0) domBucketCounts[w[i].dominantBucket]++;
+    }
+    wSize /= wn; wSpeed /= wn; wBrain /= wn; wSense /= wn;
+    wPop /= wn; wRich /= wn; wDomPct /= wn;
+
+    // Most frequent dominant species in window
+    let maxDomCount = 0;
+    for (let b = 0; b < 12; b++) {
+      if (domBucketCounts[b] > maxDomCount) { maxDomCount = domBucketCounts[b]; wDomBucket = b; }
+    }
+
+    // Detect era (prioritized - first match wins)
+    let newEra = '', newHue = 0;
+
+    if (wDomPct > 0.55 && wPop > 25 && wDomBucket >= 0) {
+      newEra = 'Dominion of ' + SPECIES_NAMES[wDomBucket];
+      newHue = wDomBucket * 30 + 15;
+    } else if (wPop < 27) {
+      newEra = 'Famine';
+      newHue = 0;
+    } else if (wRich >= 5) {
+      newEra = 'Cambrian Bloom';
+      newHue = 160;
+    } else if (wBrain > 13) {
+      newEra = 'The Scholars';
+      newHue = 50;
+    } else if (wSize > 1.65) {
+      newEra = 'Age of Giants';
+      newHue = 270;
+    } else if (wSpeed > 1.4) {
+      newEra = 'The Swift';
+      newHue = 120;
+    } else if (wSense > 150) {
+      newEra = 'Far Sight';
+      newHue = 200;
+    }
+
+    // Hysteresis: hold current era for minimum 600 ticks (10 seconds) before switching
+    if (newEra !== this.era) {
+      this._eraHoldTicks -= 60;
+      if (this._eraHoldTicks <= 0) {
+        // Fire era transition event
+        if (newEra && this._canFire('era'))
+          this.add('era', newEra, newHue);
+        this.era = newEra;
+        this.eraHue = newHue;
+        this._eraHoldTicks = 600;
+      }
+    } else {
+      this._eraHoldTicks = 600; // reset hold timer while era is stable
+    }
   }
 
   getVisible() {
