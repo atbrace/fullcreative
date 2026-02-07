@@ -35,6 +35,7 @@ class Creature {
       brainSize: CFG.BRAIN_HIDDEN,
       senseRange: CFG.SENSE_RANGE_DEFAULT,
       diet: Math.random(), // 0=flora specialist, 1=mineral specialist
+      phDeposit: CFG.PH_DEPOSIT, // pheromone deposition rate
     };
     return new Creature(x, y, genes, new Brain(CFG.BRAIN_INPUTS, CFG.BRAIN_HIDDEN, CFG.BRAIN_OUTPUTS).randomize(), 0);
   }
@@ -238,7 +239,8 @@ class Creature {
     const sizeCost = Math.pow(this.genes.size, CFG.METABOLISM_SIZE_EXP);
     const brainCost = this.genes.brainSize * CFG.METABOLISM_BRAIN_FACTOR;
     const senseCost = this.genes.senseRange * CFG.METABOLISM_SENSE_FACTOR;
-    this.energy -= (CFG.METABOLISM_BASE * sizeCost + this.speed * CFG.METABOLISM_SPEED_FACTOR + brainCost + senseCost);
+    const phCost = this.genes.phDeposit * CFG.METABOLISM_PH_FACTOR;
+    this.energy -= (CFG.METABOLISM_BASE * sizeCost + this.speed * CFG.METABOLISM_SPEED_FACTOR + brainCost + senseCost + phCost);
     this.age++;
   }
 
@@ -256,6 +258,7 @@ class Creature {
         brainSize: childBrainSize,
         senseRange: clamp((this.genes.senseRange + mate.genes.senseRange) / 2 + rand(-CFG.SENSE_MUTATION, CFG.SENSE_MUTATION), CFG.SENSE_RANGE_MIN, CFG.SENSE_RANGE_MAX),
         diet: clamp((this.genes.diet + mate.genes.diet) / 2 + rand(-CFG.DIET_MUTATION, CFG.DIET_MUTATION), 0, 1),
+        phDeposit: clamp((this.genes.phDeposit + mate.genes.phDeposit) / 2 + rand(-CFG.PH_DEPOSIT_MUTATION, CFG.PH_DEPOSIT_MUTATION), CFG.PH_DEPOSIT_MIN, CFG.PH_DEPOSIT_MAX),
       };
       cb = Brain.crossover(this.brain, mate.brain, childBrainSize);
       cb.mutate(CFG.MUTATION_RATE, CFG.MUTATION_AMOUNT);
@@ -271,6 +274,7 @@ class Creature {
         brainSize: childBrainSize,
         senseRange: clamp(this.genes.senseRange + rand(-CFG.SENSE_MUTATION, CFG.SENSE_MUTATION), CFG.SENSE_RANGE_MIN, CFG.SENSE_RANGE_MAX),
         diet: clamp(this.genes.diet + rand(-CFG.DIET_MUTATION, CFG.DIET_MUTATION), 0, 1),
+        phDeposit: clamp(this.genes.phDeposit + rand(-CFG.PH_DEPOSIT_MUTATION, CFG.PH_DEPOSIT_MUTATION), CFG.PH_DEPOSIT_MIN, CFG.PH_DEPOSIT_MAX),
       };
       cb = this.brain.resized(childBrainSize);
       cb.mutate(CFG.MUTATION_RATE, CFG.MUTATION_AMOUNT);

@@ -949,3 +949,75 @@ The camera system transforms the viewing experience. Following a creature at
 2.5x zoom reveals behavioral details invisible at overview scale: obstacle
 navigation patterns, food approach strategies, reactions to nearby creatures.
 This is the highest spectator-value feature since the stacked species chart.
+
+### Session 19 - 2026-02-07
+**Built:** Cooperative sharing economics redesign (#58) and evolvable pheromone
+deposition rate (#43).
+
+1. **Sharing economics redesign (#58):** Three changes to make cooperation
+   economically viable:
+   - SHARE_RATE: 0.8 -> 0.08 (10x cheaper). At shareOut=0.5, sharing costs
+     0.04/tick instead of 0.40/tick. Now comparable to metabolism, not catastrophic.
+   - Kin-only sharing: energy transfer only occurs to same-species creatures
+     (checked by hue bucket). Eliminates wasteful sharing with competitors.
+   - Cooperative foraging bonus (new mechanic): when a creature with shareOut > 0.1
+     is within 50px of kin who also have shareOut > 0.1, it gets CFG.COOP_BONUS
+     (0.05) energy/tick per cooperative kin (max 3). This is mutualism - both
+     cooperators benefit directly. Gated by shareOut threshold so free-riders
+     (shareOut < 0.1) don't get the bonus.
+
+   Economics with 1 cooperative kin: cooperator gains +0.044/tick net,
+   free-rider gains +0.034/tick. With 2+ cooperative kin, cooperators clearly
+   dominate. Hamilton's rule now satisfied.
+
+2. **Evolvable pheromone deposition rate (#43):** New gene phDeposit (range
+   0.05-0.60, default 0.25, mutation 0.03). Creatures deposit their evolved
+   amount instead of the global constant. Metabolic cost: phDeposit * 0.06
+   per tick. Creates "loud" vs "stealth" trail strategies. Inspector shows
+   "scent" value, trait timeline tracks it as amber line.
+
+**Benchmark methodology:** Two 10-trial x 54K-tick benchmark runs for sharing
+redesign (COOP_BONUS=0.03 scored 5/7, COOP_BONUS=0.05 scored 6/7). One 10-trial
+run for pheromone deposition (5/6).
+
+**Sharing benchmark (10 runs x 54K ticks, COOP_BONUS=0.05):**
+```
+Share mean (first):     0.556
+Share mean (last):      0.542  (maintained, not crashed to 0.2 like old system)
+Share slope:           +0.003  (positive selection)
+Cooperation rate:       52.5%  (>half of creatures cooperating)
+Mean generation:        54.5   (no regression)
+Mate slope (control):  -0.010  (share selected FOR, mate drifting down)
+Trials with positive:  6/10    (majority positive)
+```
+
+**Pheromone deposition benchmark (10 runs x 54K ticks):**
+```
+phDeposit mean:    0.251 (near default - expected, gene evolves bidirectionally)
+phDeposit variance: 0.006 (real genetic diversity within populations)
+phDeposit range:   [0.12, 0.38] (meaningful phenotypic spread)
+Per-trial finals:  [0.079, 0.272, 0.244, 0.294, 0.131, 0.480, 0.291, 0.354, 0.109, 0.254]
+Generation:        50.5 (no regression)
+Share mean:        0.609 (cooperation holding strong)
+Robustness:        10/10 trials pass
+```
+
+**Learned:** The fundamental breakthrough was recognizing that cooperative behavior
+needs mutualism, not altruism. The old sharing system (SHARE_RATE=0.8) was pure
+altruism: donors lost massive energy with no direct benefit. The cooperative
+foraging bonus makes sharing into mutualism: both cooperators benefit when near
+each other. This mirrors real evolutionary biology - mutualism evolves far more
+easily than altruism because it doesn't require Hamilton's rule to hold strongly.
+
+The cost-benefit math for COOP_BONUS is subtle. At 0.03, free-riders slightly
+beat cooperators with just 1 kin nearby (5/7 pass). At 0.05, cooperators win
+even with 1 kin (6/7 pass), but some trials hit high populations. The sweet spot
+required understanding exactly how the sharing cost, received energy, and coop
+bonus interact for cooperators vs free-riders at different group sizes.
+
+The pheromone deposition gene shows beautiful bidirectional evolution: some
+populations evolve stealth (0.08-0.13, nearly silent trails, low metabolism),
+others evolve loud marking (0.35-0.48, strong territory marking). The average
+across trials stays near default because evolution explores both strategies.
+This is exactly the kind of strategic diversity that makes different
+evolutionary runs unique - a design win for the emergence philosophy.

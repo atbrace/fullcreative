@@ -218,17 +218,34 @@ class World {
       c.move(this.w, this.h, this.obstacles, this.currents);
       if (c.huntCooldown > 0) c.huntCooldown--;
 
-      // Deposit species-scented pheromone at current position
-      this.phGrid.deposit(c.pos.x, c.pos.y, CFG.PH_DEPOSIT, Math.floor(c.genes.hue / 30) % 12);
+      // Deposit species-scented pheromone at current position (evolvable rate)
+      this.phGrid.deposit(c.pos.x, c.pos.y, c.genes.phDeposit, Math.floor(c.genes.hue / 30) % 12);
 
-      // Energy sharing
+      // Energy sharing (kin-only) + cooperative foraging bonus
+      const cBucket = Math.floor(c.genes.hue / 30) % 12;
       if (c.shareOut > 0.1 && c._ncRef && c._ncRef.alive && c._ncDist < CFG.SHARE_RANGE) {
-        const give = Math.min(c.shareOut * CFG.SHARE_RATE, c.energy - 1);
-        if (give > 0) {
-          c.energy -= give;
-          c._ncRef.energy = Math.min(c._ncRef.energy + give * CFG.SHARE_EFFICIENCY, CFG.ENERGY_MAX);
-          if (this.tick % 8 === 0)
-            this.spawnP((c.pos.x + c._ncRef.pos.x) / 2, (c.pos.y + c._ncRef.pos.y) / 2, 140, 1, 0.6, 12, 1);
+        if (Math.floor(c._ncRef.genes.hue / 30) % 12 === cBucket) {
+          const give = Math.min(c.shareOut * CFG.SHARE_RATE, c.energy - 1);
+          if (give > 0) {
+            c.energy -= give;
+            c._ncRef.energy = Math.min(c._ncRef.energy + give * CFG.SHARE_EFFICIENCY, CFG.ENERGY_MAX);
+            if (this.tick % 8 === 0)
+              this.spawnP((c.pos.x + c._ncRef.pos.x) / 2, (c.pos.y + c._ncRef.pos.y) / 2, 140, 1, 0.6, 12, 1);
+          }
+        }
+      }
+      // Cooperative foraging bonus: mutual energy trickle for nearby cooperative kin
+      if (c.shareOut > CFG.COOP_SHARE_THRESHOLD) {
+        const coopNearby = this.creatureGrid.query(c.pos.x, c.pos.y, CFG.COOP_RANGE);
+        let coopKin = 0;
+        for (let j = 0; j < coopNearby.length && coopKin < CFG.COOP_MAX_KIN; j++) {
+          const ally = coopNearby[j];
+          if (ally.id === c.id || !ally.alive) continue;
+          if (Math.floor(ally.genes.hue / 30) % 12 !== cBucket) continue;
+          if (ally.shareOut > CFG.COOP_SHARE_THRESHOLD) coopKin++;
+        }
+        if (coopKin > 0) {
+          c.energy = Math.min(c.energy + coopKin * CFG.COOP_BONUS, CFG.ENERGY_MAX);
         }
       }
 
@@ -352,6 +369,7 @@ class World {
             brainSize: childBrainSize,
             senseRange: clamp(parent.genes.senseRange + rand(-CFG.SENSE_MUTATION * 2, CFG.SENSE_MUTATION * 2), CFG.SENSE_RANGE_MIN, CFG.SENSE_RANGE_MAX),
             diet: clamp(parent.genes.diet + rand(-CFG.DIET_MUTATION * 2, CFG.DIET_MUTATION * 2), 0, 1),
+            phDeposit: clamp(parent.genes.phDeposit + rand(-CFG.PH_DEPOSIT_MUTATION * 2, CFG.PH_DEPOSIT_MUTATION * 2), CFG.PH_DEPOSIT_MIN, CFG.PH_DEPOSIT_MAX),
           };
           const brain = parent.brain.resized(childBrainSize);
           brain.mutate(CFG.MUTATION_RATE * 1.5, CFG.MUTATION_AMOUNT * 1.5);
@@ -368,12 +386,12 @@ class World {
       this.speciesTracker.update(this.creatures, this.tick);
       // Trait averages for trait timeline
       const nc = this.creatures.length || 1;
-      let tb = 0, ts = 0, tsz = 0, tsp = 0;
+      let tb = 0, ts = 0, tsz = 0, tsp = 0, tph = 0;
       for (let i = 0; i < this.creatures.length; i++) {
         const g = this.creatures[i].genes;
-        tb += g.brainSize; ts += g.senseRange; tsz += g.size; tsp += g.speedGene;
+        tb += g.brainSize; ts += g.senseRange; tsz += g.size; tsp += g.speedGene; tph += g.phDeposit;
       }
-      this.traitHistory.push({ brain: tb / nc, sense: ts / nc, size: tsz / nc, speed: tsp / nc });
+      this.traitHistory.push({ brain: tb / nc, sense: ts / nc, size: tsz / nc, speed: tsp / nc, phDeposit: tph / nc });
       if (this.traitHistory.length > 600) this.traitHistory.shift();
     }
     if (this.tick % 30 === 0) audio.setPopulation(this.creatures.length);

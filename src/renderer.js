@@ -484,6 +484,7 @@ class Renderer {
       { key: 'sense', lo: CFG.SENSE_RANGE_MIN, hi: CFG.SENSE_RANGE_MAX, color: '80, 170, 220' },
       { key: 'size',  lo: 0.5, hi: 2.0, color: '140, 140, 220' },
       { key: 'speed', lo: 0.5, hi: 2.0, color: '100, 200, 120' },
+      { key: 'phDeposit', lo: CFG.PH_DEPOSIT_MIN, hi: CFG.PH_DEPOSIT_MAX, color: '200, 160, 80' },
     ];
 
     for (let t = 0; t < traits.length; t++) {
@@ -512,6 +513,7 @@ class Renderer {
         { val: Math.round(last.sense), color: '80, 170, 220', name: 'sense' },
         { val: last.size.toFixed(2), color: '140, 140, 220', name: 'size' },
         { val: last.speed.toFixed(2), color: '100, 200, 120', name: 'spd' },
+        { val: last.phDeposit.toFixed(2), color: '200, 160, 80', name: 'scent' },
       ];
       for (let i = 0; i < labels.length; i++) {
         const ly = gY + 9 + i * 9;

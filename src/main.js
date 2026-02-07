@@ -129,6 +129,8 @@
     dietEl.style.color = dietVal < 0.35 ? 'hsl(140,60%,55%)' : dietVal > 0.65 ? 'hsl(200,65%,60%)' : 'hsl(170,40%,50%)';
     document.getElementById('i-brain').textContent = c.genes.brainSize + 'h';
     document.getElementById('i-vis').textContent = Math.round(c.genes.senseRange);
+    const phDepEl = document.getElementById('i-scent');
+    if (phDepEl) phDepEl.textContent = c.genes.phDeposit.toFixed(2);
     document.getElementById('i-brain-lbl').textContent = 'NEURAL NETWORK ' + c.brain.ni + '-' + c.brain.nh + '-' + c.brain.no;
 
     renderBrain(brainCanvas, c.brain);

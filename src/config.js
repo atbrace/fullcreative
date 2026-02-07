@@ -90,16 +90,26 @@ const CFG = {
 
   // Pheromone grid
   PH_CELL: 20,
-  PH_DEPOSIT: 0.25,
+  PH_DEPOSIT: 0.25,           // default deposition rate (also gene default)
+  PH_DEPOSIT_MIN: 0.05,       // gene range min (nearly silent trails)
+  PH_DEPOSIT_MAX: 0.60,       // gene range max (very loud trails)
+  PH_DEPOSIT_MUTATION: 0.03,  // mutation per reproduction
+  METABOLISM_PH_FACTOR: 0.06, // metabolic cost per unit deposition rate per tick
   PH_DECAY: 0.988,
   PH_DIFFUSE: 0.04,
   PH_DIFFUSE_INTERVAL: 4,
   PH_MAX_VIZ: 8,
 
-  // Energy sharing
+  // Energy sharing (kin-only with cooperative foraging bonus)
   SHARE_RANGE: 20,
-  SHARE_RATE: 0.8,
+  SHARE_RATE: 0.08,
   SHARE_EFFICIENCY: 0.85,
+
+  // Cooperative foraging bonus (mutualism)
+  COOP_RANGE: 50,
+  COOP_BONUS: 0.05,
+  COOP_MAX_KIN: 3,
+  COOP_SHARE_THRESHOLD: 0.1,
 
   // Mating
   MATE_RANGE: 25,
