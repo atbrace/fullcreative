@@ -56,10 +56,13 @@ all from nothing but neural network mutation and survival pressure.
 - Pheromone trails create landscape-scale chemical memory
 
 ### What Needs Improvement
-- Creatures don't develop complex behaviors beyond basic foraging
-- 3 signal channels exist but creatures haven't evolved meaningful use yet
-- Pheromone inputs exist but evolved pheromone-following behavior not yet observed
-- Species "speciation" is only by hue bucket, not behavioral divergence
+- Emergent behavior exists (cooperation, pheromone-following, pack formation) but
+  is invisible to the viewer - measurable in benchmarks, not legible on screen
+- The "Wait, did that creature just...?" moment hasn't arrived yet
+- 3 signal channels are confirmed evolved noise (Session 11)
+- Evolution has not had enough time - 54K ticks produces ~50-80 generations,
+  complex strategies may need thousands
+- No persistence - every run starts from scratch, discarding evolved populations
 
 ---
 
@@ -215,8 +218,57 @@ selection pressure that rewards using the brain's social/perceptual capabilities
   30-sample sliding window and 10-second hysteresis. Displayed in stats panel.
 - Brain complexity visual indicator (2026-02-06): Heading dot scales with
   brainSize gene. Glow halo for brain > 14.
+- Aging and senescence (2026-02-07): soft metabolism increase past 50s of age.
+  Caps max lifespan, creates 10x more generational turnover.
+- Cooperative hunting (2026-02-07): predator kin reduce effective predation ratio.
+  Pack formation rate 61.6%.
+- Sharing economics redesign (2026-02-07): kin-only sharing + cooperative foraging
+  bonus. Cooperation maintained at 52-56%.
+- Evolvable pheromone deposition (2026-02-07): phDeposit gene evolves
+  bidirectionally (stealth vs loud trail strategies).
 
-### Phase 6: The Long Dream (far future)
+### Phase 6: The Long View
+*Stop adding mechanics. Make emergence visible. Give evolution time.*
+
+Twenty sessions of bottom-up infrastructure building have created a rich simulation
+engine, but the gap between "what the architecture enables" and "what a viewer can
+see" is the central remaining problem. Cooperation, pheromone-following, and pack
+formation all exist as statistical phenomena measurable in benchmarks - but they're
+invisible on screen. The north star moment ("Wait, did that creature just...?")
+requires two things: (1) the viewer can see what creatures are doing, and (2)
+evolution has enough time to discover complex strategies.
+
+This phase deliberately stops adding new mechanics. The simulation has enough moving
+parts. What it lacks is legibility and persistence.
+
+**Three priorities, in order:**
+
+1. **Save/load ecosystem state (#28)** [P1-high]
+   Every simulation currently starts from scratch and runs for ~15 minutes. Complex
+   behaviors may need thousands of generations, not dozens. Save/load lets a viewer
+   grow an ecosystem over days - returning to find their population has evolved new
+   strategies overnight. This also creates emotional investment: "my ecosystem."
+
+2. **Emergence visibility (#70)** [P1-high]
+   Make existing emergent behaviors visible to the naked eye. Behavioral mode
+   indicators (foraging/hunting/sharing/mating), cooperation lines between sharing
+   creatures, territory boundary rendering where species pheromone concentrations
+   meet. Every indicator must be subtle enough to preserve the aesthetic. The goal
+   is not a data dashboard - it's making the simulation self-documenting.
+
+3. **Pheromone as brain output (#61)** [P1-high]
+   The single remaining mechanic worth adding. Transform pheromone deposition from
+   a fixed gene into a brain output: creatures choose when and where to mark
+   territory. Deposit heavily near food, go silent in enemy territory, mark paths
+   for kin. Because pheromone inputs are already proven functional (Session 18),
+   the receiver side of this communication channel already works. This is the
+   closest the architecture can get to intentional proto-communication.
+
+Phase 6 is complete when: a viewer can watch a saved ecosystem that has been
+evolving for 10,000+ generations and observe at least one behavior they would
+describe as "purposeful" or "surprising" without any prompting.
+
+### Phase 7: The Long Dream (far future)
 *Aspirational features. May never be built. That's fine.*
 
 **Ideas:** See GitHub Issues labeled `phase-6`.
@@ -225,8 +277,11 @@ selection pressure that rewards using the brain's social/perceptual capabilities
 
 ## Ideas Backlog
 
-See GitHub Issues labeled `idea`. Evaluate during PM review and promote to
-roadmap if worthy: `gh issue edit <N> --add-label roadmap --remove-label idea`
+See GitHub Issues labeled `idea`. Most are investigations or mechanics that were
+valuable to consider but are not on the critical path. The project does not need
+more moving parts - it needs to make existing emergence visible and give evolution
+time. Evaluate during PM review and promote only if they serve legibility or
+persistence: `gh issue edit <N> --add-label roadmap --remove-label idea`
 
 ---
 
