@@ -1311,3 +1311,24 @@ genuinely different survival strategy - a loner archetype that invests in
 cognition and perception instead of social coordination. This never appeared in
 Session 22's flat-bonus ecosystem. The simulation now produces the strategic
 diversity that makes different evolutionary runs unique.
+
+**Long validation (3 trials x 224K ticks, matching gen-232 save timescale):**
+The diminishing returns fix holds at 200+ generations. 6/6 criteria pass.
+```
+Predation:        9.1% [6.6, 13.7]  (was 0% in gen-232 save)
+Population:       40 avg, 0/3 at ceiling  (was 250 CEILING in save)
+Dominant species: 65% [43, 91]  (was 98.4% monoculture)
+Brain mean:       10.6 [8.8, 11.8]  (was 9.7 and shrinking)
+Species:          3.3 [2, 4]  (was 1)
+```
+Predation starts at 17% and declines to 9% - but never vanishes. Share drifts
+up (0.54 -> 0.71) but doesn't lock at 0.90+. Population never hits ceiling -
+carrying capacity is now food-limited, not cap-limited.
+
+**Brain weight analysis of the gen-232 save (pre-fix)** revealed that the
+cooperation strategy was more sophisticated than assumed. Recurrent memory
+neuron m.1 was the #1 driver for both sharing and pheromone deposition -
+creatures evolved a shared internal "social mode" state. Foreign pheromone
+direction was the #2 driver for sharing - creatures cooperated more intensely
+near enemy territory. Filed #74 (monoculture feedback loop via foreign
+pheromone disappearance). Closed #72 (predation collapse) as validated fixed.
