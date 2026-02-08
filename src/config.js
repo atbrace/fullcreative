@@ -117,7 +117,8 @@ const CFG = {
   // Cooperative foraging bonus (mutualism)
   COOP_RANGE: 50,
   COOP_BONUS: 0.05,
-  COOP_MAX_KIN: 3,
+  COOP_DECAY: 0.6,
+  COOP_MAX_KIN: 5,
   COOP_SHARE_THRESHOLD: 0.1,
 
   // Mating

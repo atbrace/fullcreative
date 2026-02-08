@@ -62,18 +62,15 @@ all from nothing but neural network mutation and survival pressure.
 - Pheromone trails create landscape-scale chemical memory
 
 ### What Needs Improvement
-- Cooperation is now visible (cooperation lines, territory boundaries, mode arcs)
-  but the ecosystem converges on a SINGLE strategy: big, fast, cooperative foragers
-  with shrinking brains. Predation vanishes by generation 100+.
-- The cooperative foraging bonus (0.05/tick per kin) is too strong - it crowds out
-  all alternative strategies including predation, solitary foraging, and stealth.
-  Diminishing returns or density-dependent scaling needed (#73).
-- Brain sizes evolve DOWN (12 -> 5.5-10.2) because the cooperation strategy is
-  computationally simple. Larger brains are metabolic waste. This limits the
-  complexity of evolved behavior.
+- Cooperation is visible (cooperation lines, territory boundaries, mode arcs)
+  and the cooperative singularity is fixed (Session 23: diminishing returns).
+  Different runs now converge on different strategies (solitary, cooperative,
+  mixed). Predation persists at 7.7% of deaths past generation 100+.
+- Brain sizes stabilized: mean 10.7 with range [4, 15] (was floor-hugging at
+  5.5-10.2). Cognitive diversity exists but larger brains (>14) are still rare.
 - 3 signal channels are confirmed evolved noise (Session 11)
-- The "Wait, did that creature just...?" moment exists for cooperation but is
-  monotone - needs strategic diversity (not just everyone cooperating)
+- Long-term stability (200+ generations) still needs investigation:
+  does predation hold? Do strategies diversify further or reconverge?
 
 ---
 
@@ -1259,3 +1256,58 @@ The roadmap is now clear for the first time: all 6 phases are technically
 complete, but the Phase 6 completion criterion ("purposeful or surprising
 behavior at 10K+ generations") reveals a balance problem that must be solved
 before the project can rest.
+
+### Session 23 - 2026-02-07
+**Built:** Diminishing returns on cooperative foraging bonus (#73).
+
+1. **Diminishing returns formula:** Replaced flat `coopKin * COOP_BONUS` with
+   decay-per-kin: `bonus_i = COOP_BONUS / (1 + i * COOP_DECAY)`. COOP_DECAY=0.6.
+   First kin gives full 0.050 bonus, second gives 0.031, third gives 0.023.
+   Total for 3 kin: 0.104 (was 0.150, 31% reduction). COOP_MAX_KIN raised from
+   3 to 5 to allow larger groups, but with heavily diminished marginal returns
+   (asymptote ~0.137). This preserves small-group cooperation while making
+   large herds unprofitable compared to alternative strategies.
+
+2. **Predation tracking:** Added `predationKills` counter to World for benchmark
+   instrumentation. Included in save/load serialization.
+
+**Benchmark (5 trials x 108K ticks, 132 avg generations):**
+```
+Predation %:      7.7% [4.7, 13.1]  (was 0% at Session 22 baseline)
+Brain mean:       10.7 [8.3, 13.0]  (was 8.2, floor-hugging)
+Brain range:      min [4, 12], max [9, 15]  (was [5.5, 10.2])
+Share mean:       0.535  (was 0.54-0.92 - cooperation maintained)
+Share variance:   0.264  (was ~0 - strategic diversity exists)
+Species:          3.0    (similar to baseline)
+Diet:             0.50 [0.27, 0.62]  (dietary specialization)
+Validation:       5/6 criteria pass
+```
+
+**The cooperative singularity is broken.** Different trials converge on genuinely
+different strategies:
+- Trial 1: Low cooperation (share 0.353), fast (speed 1.88) - solitary foraging
+- Trial 2: High cooperation (share 0.768), most predation (13.1%) - group hunting
+- Trial 3: Eusocial (share 0.863), small brains (8.6) - cooperation with brain
+  simplification, but predation still 7.8%
+- Trial 4: Medium coop (share 0.617), widest brain range [4, 14] - cognitive diversity
+- Trial 5: Near-zero coop (share 0.072), big brains (11.1) - solitary strategy
+
+The one failed criterion ("hunting mode seen at final sample") is a detection
+artifact - predation occurs abundantly (500 kills/trial avg) but mode detection
+is instantaneous and predation events are single-tick.
+
+**Learned:** The fix was remarkably simple: one formula change (harmonic decay
+instead of linear accumulation) and one constant (COOP_DECAY=0.6). The result
+is dramatic. The flat bonus created a cooperative singularity because the
+marginal value of the Nth cooperator was constant - there was never a reason
+to stop cooperating. With diminishing returns, small groups (1-2 kin) are
+efficient but large groups waste metabolic capacity on minimal marginal
+benefit. This opens ecological niches for solitary strategies (fast foraging,
+predation) that were previously crowded out.
+
+The most striking finding: Trial 5 evolved near-zero cooperation (share 0.072,
+5 coop pairs) with larger brains (11.1) and high sense range (159). This is a
+genuinely different survival strategy - a loner archetype that invests in
+cognition and perception instead of social coordination. This never appeared in
+Session 22's flat-bonus ecosystem. The simulation now produces the strategic
+diversity that makes different evolutionary runs unique.

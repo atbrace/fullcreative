@@ -11,7 +11,7 @@ class World {
     this.hotspots = [];
     this.obstacles = [];
     this.currents = [];
-    this.tick = 0; this.births = 0; this.sexualBirths = 0; this.deaths = 0; this.maxGen = 0;
+    this.tick = 0; this.births = 0; this.sexualBirths = 0; this.deaths = 0; this.predationKills = 0; this.maxGen = 0;
     this.recentPredations = 0;
     this.popHistory = [];
     this.traitHistory = []; // [{brain, sense, size, speed}] sampled every 10 ticks
@@ -238,20 +238,24 @@ class World {
         }
       }
       // Cooperative foraging bonus: mutual energy trickle for nearby cooperative kin
+      // Diminishing returns: each additional kin gives less bonus
+      // bonus_i = COOP_BONUS / (1 + i * COOP_DECAY), total = sum of bonus_i
       if (c.shareOut > CFG.COOP_SHARE_THRESHOLD) {
         const coopNearby = this.creatureGrid.query(c.pos.x, c.pos.y, CFG.COOP_RANGE);
         let coopKin = 0;
+        let coopTotal = 0;
         for (let j = 0; j < coopNearby.length && coopKin < CFG.COOP_MAX_KIN; j++) {
           const ally = coopNearby[j];
           if (ally.id === c.id || !ally.alive) continue;
           if (Math.floor(ally.genes.hue / 30) % 12 !== cBucket) continue;
           if (ally.shareOut > CFG.COOP_SHARE_THRESHOLD) {
+            coopTotal += CFG.COOP_BONUS / (1 + coopKin * CFG.COOP_DECAY);
             coopKin++;
             if (c.id < ally.id) this.coopPairs.push(c, ally);
           }
         }
         if (coopKin > 0) {
-          c.energy = Math.min(c.energy + coopKin * CFG.COOP_BONUS, CFG.ENERGY_MAX);
+          c.energy = Math.min(c.energy + coopTotal, CFG.ENERGY_MAX);
         }
       }
 
@@ -311,7 +315,7 @@ class World {
             prey.alive = false;
             c.energy = Math.min(c.energy + prey.energy * CFG.PREDATION_EFFICIENCY, CFG.ENERGY_MAX);
             this.spawnP(prey.pos.x, prey.pos.y, prey.genes.hue, 12, 2.5, 35, 2);
-            this.deaths++;
+            this.deaths++; this.predationKills++;
             this.recentPredations++;
             this.eventLog.notifyPredation();
             audio.predationSweep();
@@ -450,7 +454,7 @@ class World {
       version: 1,
       w: this.w, h: this.h, tick: this.tick,
       births: this.births, sexualBirths: this.sexualBirths,
-      deaths: this.deaths, maxGen: this.maxGen,
+      deaths: this.deaths, predationKills: this.predationKills, maxGen: this.maxGen,
       hotspots: this.hotspots.map(hs => ({ x: hs.x, y: hs.y, vx: hs.vx, vy: hs.vy, strength: hs.strength })),
       obstacles: this.obstacles.map(ob => ({ x: ob.pos.x, y: ob.pos.y, radius: ob.radius })),
       currents: this.currents.map(cz => ({
@@ -473,6 +477,7 @@ class World {
     this.births = data.births;
     this.sexualBirths = data.sexualBirths;
     this.deaths = data.deaths;
+    this.predationKills = data.predationKills || 0;
     this.maxGen = data.maxGen;
 
     // Restore hotspots
