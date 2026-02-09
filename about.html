@@ -1,0 +1,616 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>About Emergence</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #08081a;
+    color: #9090b0;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    font-size: 16px;
+    line-height: 1.85;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .page {
+    max-width: 680px;
+    margin: 0 auto;
+    padding: 80px 32px 120px;
+  }
+
+  h1 {
+    font-size: 2.8rem;
+    font-weight: 200;
+    letter-spacing: 0.32em;
+    color: #d0d0e8;
+    margin-bottom: 4px;
+  }
+
+  .subtitle {
+    font-size: 0.88rem;
+    font-weight: 300;
+    letter-spacing: 0.18em;
+    color: #505068;
+    text-transform: lowercase;
+    margin-bottom: 56px;
+  }
+
+  h2 {
+    font-size: 0.72rem;
+    font-weight: 500;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: #505070;
+    margin-top: 56px;
+    margin-bottom: 20px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid rgba(80, 80, 120, 0.15);
+  }
+
+  p {
+    margin-bottom: 20px;
+    color: #8888a8;
+  }
+
+  .lead {
+    font-size: 1.08rem;
+    line-height: 1.95;
+    color: #a0a0c0;
+    margin-bottom: 28px;
+  }
+
+  .accent { color: #b0b0d0; }
+  .dim { color: #606080; }
+
+  .visual-key {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 6px 20px;
+    margin: 24px 0 28px;
+    font-size: 0.88rem;
+    line-height: 1.8;
+  }
+  .vk-label {
+    color: #606080;
+    text-align: right;
+    font-size: 0.78rem;
+    letter-spacing: 0.03em;
+  }
+  .vk-desc { color: #8888a8; }
+
+  .dot {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    vertical-align: middle;
+    margin-right: 3px;
+  }
+
+  .brain-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 20px 0 28px;
+    font-size: 0.82rem;
+  }
+  .brain-table th {
+    text-align: left;
+    color: #505070;
+    font-weight: 500;
+    font-size: 0.68rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 6px 12px 6px 0;
+    border-bottom: 1px solid rgba(80, 80, 120, 0.12);
+  }
+  .brain-table td {
+    color: #8080a0;
+    padding: 5px 12px 5px 0;
+    border-bottom: 1px solid rgba(80, 80, 120, 0.06);
+    vertical-align: top;
+  }
+  .brain-table td:first-child {
+    color: #7070a0;
+    white-space: nowrap;
+  }
+
+  .gene-list {
+    list-style: none;
+    margin: 16px 0 28px;
+  }
+  .gene-list li {
+    padding: 6px 0;
+    border-bottom: 1px solid rgba(80, 80, 120, 0.06);
+    font-size: 0.88rem;
+  }
+  .gene-list li:last-child { border-bottom: none; }
+  .gene-name {
+    color: #7070a0;
+    font-size: 0.82rem;
+    display: inline-block;
+    min-width: 110px;
+  }
+  .gene-desc { color: #707090; }
+
+  .era-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px 24px;
+    margin: 16px 0 28px;
+    font-size: 0.84rem;
+  }
+  .era-name {
+    color: #8888a8;
+    font-style: italic;
+  }
+  .era-desc {
+    color: #606080;
+    font-size: 0.78rem;
+  }
+
+  .keys {
+    margin: 16px 0 28px;
+    font-size: 0.84rem;
+  }
+  .keys div {
+    padding: 3px 0;
+  }
+  kbd {
+    display: inline-block;
+    padding: 1px 6px;
+    margin-right: 4px;
+    border: 1px solid #2a2a48;
+    border-radius: 3px;
+    font-family: inherit;
+    font-size: 0.78rem;
+    color: #7070a0;
+    background: rgba(25, 25, 55, 0.5);
+  }
+
+  .separator {
+    width: 40px;
+    height: 1px;
+    background: rgba(80, 80, 120, 0.2);
+    margin: 56px 0;
+  }
+
+  .back-link {
+    display: inline-block;
+    margin-top: 48px;
+    color: #505070;
+    text-decoration: none;
+    font-size: 0.78rem;
+    letter-spacing: 0.1em;
+    transition: color 0.2s;
+  }
+  .back-link:hover { color: #8080a0; }
+
+  .closing {
+    color: #606080;
+    font-style: italic;
+    margin-top: 40px;
+  }
+
+  .note {
+    background: rgba(25, 25, 55, 0.4);
+    border-left: 2px solid rgba(80, 80, 120, 0.2);
+    padding: 14px 18px;
+    margin: 24px 0 28px;
+    font-size: 0.86rem;
+    color: #7878a0;
+    border-radius: 0 6px 6px 0;
+  }
+</style>
+</head>
+<body>
+
+<div class="page">
+
+  <h1>EMERGENCE</h1>
+  <p class="subtitle">a digital ecosystem</p>
+
+  <p class="lead">
+    Emergence is a zero-dependency artificial life simulation that runs entirely in your
+    browser. Creatures with tiny neural networks are born into a world they know nothing
+    about. They cannot see the code that governs them. They have no instructions, no
+    objectives, no designer's intent. They have only a brain full of random noise, a body
+    that burns energy, and the blind pressure of survival. Everything you see them
+    do - the foraging, the hunting, the cooperation, the territorial clustering - is
+    something they evolved on their own.
+  </p>
+
+  <p>
+    Nothing in this simulation is scripted. There is no pathfinding algorithm, no flocking
+    rule, no decision tree. Each creature is a small neural network that takes in what it
+    can sense and produces motor commands: which way to turn, how fast to move, whether to
+    share energy, whether to seek a mate, how much chemical scent to leave behind. The
+    creatures that find food survive. The creatures that find food and reproduce pass their
+    brain weights to the next generation, slightly mutated. Over hundreds of generations,
+    the population discovers strategies that no one programmed.
+  </p>
+
+  <div class="separator"></div>
+
+  <h2>What You Are Watching</h2>
+
+  <p>
+    The screen is a world. The glowing dots are creatures. Everything visible encodes
+    information - the simulation is designed to be read, not just watched.
+  </p>
+
+  <div class="visual-key">
+    <span class="vk-label">color</span>
+    <span class="vk-desc">Species lineage. Creatures inherit hue from their parents with slight drift. Same color means same genetic family. Over time, the population sorts into a handful of dominant species - you can watch one color expand across the world while others retreat.</span>
+
+    <span class="vk-label">brightness</span>
+    <span class="vk-desc">Energy. A bright creature has recently eaten and is thriving. A dim creature is starving. When a creature goes dark and vanishes, it has died.</span>
+
+    <span class="vk-label">size</span>
+    <span class="vk-desc">Physical power. Larger creatures can eat smaller ones (predation), but they burn more energy just to exist. Size is an evolved gene - some lineages evolve to be large predators, others stay small and nimble.</span>
+
+    <span class="vk-label">trailing segments</span>
+    <span class="vk-desc">The worm-like body. Five trailing segments show each creature's recent path. Fast creatures leave elongated trails; slow ones bunch up tight.</span>
+
+    <span class="vk-label">heading dot</span>
+    <span class="vk-desc">The bright point at the front of each creature is its "eye." Its size reflects brain complexity - a creature with a large heading dot has evolved a bigger neural network. Creatures with brains above a certain size get a subtle glow halo around this dot.</span>
+
+    <span class="vk-label">colored arcs</span>
+    <span class="vk-desc">Behavioral mode indicators. <span class="dot" style="background:rgb(100,230,160)"></span>green = foraging, <span class="dot" style="background:rgb(255,120,80)"></span>red-orange = hunting, <span class="dot" style="background:rgb(255,220,80)"></span>yellow = fleeing, <span class="dot" style="background:rgb(100,220,160)"></span>teal = sharing energy, <span class="dot" style="background:rgb(240,140,200)"></span>pink = seeking a mate. These are inferred from the creature's brain outputs and perception state - they show you what the creature is "trying" to do.</span>
+
+    <span class="vk-label">teal lines</span>
+    <span class="vk-desc">Cooperation network. When two creatures of the same species are near each other and both have evolved cooperative behavior, a teal line connects them. Dense networks mean the species has evolved group living.</span>
+
+    <span class="vk-label">colored haze</span>
+    <span class="vk-desc">Pheromone territories. Creatures leave chemical trails that persist, diffuse, and slowly decay. The haze is colored by species - if you see a purple region and a green region with a faint border between them, two species have established neighboring territories.</span>
+
+    <span class="vk-label">faint borders</span>
+    <span class="vk-desc">Territory boundaries. Where two species' pheromone zones meet, a subtle line appears. These shift as populations expand and contract.</span>
+
+    <span class="vk-label"><span class="dot" style="background:rgb(100,230,160)"></span> green glow</span>
+    <span class="vk-desc">Flora food. Spawns near nutrient hotspots - the large, faint green circles you see in the world.</span>
+
+    <span class="vk-label"><span class="dot" style="background:rgb(100,200,255)"></span> cyan glow</span>
+    <span class="vk-desc">Mineral food. Spawns near rock formations. Worth 20% more energy, but requires dietary specialization to harvest efficiently.</span>
+
+    <span class="vk-label">dark formations</span>
+    <span class="vk-desc">Rock obstacles. Creatures bounce off them. Food cannot spawn inside them. Pheromones cannot diffuse through them, creating "scent shadows." Mineral food clusters around their edges.</span>
+
+    <span class="vk-label">signal rings</span>
+    <span class="vk-desc">Three concentric pulsing rings around creatures in <span style="color:hsl(30,75%,60%)">gold</span>, <span style="color:hsl(200,75%,60%)">blue</span>, and <span style="color:hsl(320,75%,60%)">magenta</span>. These are broadcast signals - each creature's brain controls three independent signal channels. Whether they're used for communication or are just evolutionary noise depends on how far evolution has progressed.</span>
+
+    <span class="vk-label">particle bursts</span>
+    <span class="vk-desc">Events. A green burst means a creature ate. A colored burst at a creature's position means it reproduced. A large, saturated burst means something was killed by a predator. A scattering of colored particles means a creature starved.</span>
+  </div>
+
+  <h2>The Brain</h2>
+
+  <p>
+    Every creature carries a two-layer neural network. It has 32 inputs, an evolvable
+    hidden layer (between 4 and 20 neurons, default 12), and 8 outputs. All activations
+    use hyperbolic tangent. Four of the hidden neurons feed their activation back as input
+    on the next tick - a simple form of recurrent memory that gives creatures the capacity
+    to maintain internal state across time.
+  </p>
+
+  <p>
+    The brain processes once per simulation tick (60 times per second at 1x speed). Each
+    tick, the creature perceives its surroundings, feeds the perception into its network,
+    and acts on whatever the network outputs. There is no learning during a creature's
+    lifetime. All adaptation happens across generations through mutation and selection.
+  </p>
+
+  <table class="brain-table">
+    <tr><th colspan="2">Inputs (what a creature can sense)</th></tr>
+    <tr><td>fd.s, fd.c, fd.d</td><td>Direction and distance to the nearest food (weighted by dietary preference - mismatched food appears farther away)</td></tr>
+    <tr><td>cr.s, cr.c, cr.d, cr.z</td><td>Direction, distance, and relative size of the nearest other creature</td></tr>
+    <tr><td>kin</td><td>How genetically similar the nearest creature is (-1 = opposite species, +1 = same species)</td></tr>
+    <tr><td>s0-s2 (x3 each)</td><td>Direction and strength of the nearest creature broadcasting on each of three signal channels</td></tr>
+    <tr><td>ob.s, ob.c, ob.d</td><td>Direction and distance to the nearest obstacle surface</td></tr>
+    <tr><td>kp.s, kp.c, kp.v</td><td>Gradient direction and intensity of same-species pheromone trails (kin scent)</td></tr>
+    <tr><td>fp.s, fp.c, fp.v</td><td>Gradient direction and intensity of other-species pheromone trails (foreign scent)</td></tr>
+    <tr><td>nrg</td><td>Own energy level (0-1)</td></tr>
+    <tr><td>1.0</td><td>Constant bias input</td></tr>
+    <tr><td>m.0 - m.3</td><td>Recurrent memory: the previous tick's hidden layer activations fed back in</td></tr>
+  </table>
+
+  <table class="brain-table">
+    <tr><th colspan="2">Outputs (what a creature can do)</th></tr>
+    <tr><td>turn</td><td>Steering direction</td></tr>
+    <tr><td>spd</td><td>Movement speed</td></tr>
+    <tr><td>sg0, sg1, sg2</td><td>Signal broadcast strength on three independent channels</td></tr>
+    <tr><td>shr</td><td>Energy sharing intensity - when high and near a same-species creature, donates energy</td></tr>
+    <tr><td>mat</td><td>Mating willingness - when high and near another willing creature with enough energy, triggers sexual reproduction</td></tr>
+    <tr><td>phd</td><td>Pheromone deposition intensity - how strongly to mark the ground with chemical scent</td></tr>
+  </table>
+
+  <p>
+    When you click a creature and open the inspector panel, you see this network rendered
+    in real time. Blue connections carry positive (excitatory) signals, red connections carry
+    negative (inhibitory) signals, and brightness indicates activation strength. The labeled
+    nodes on the left are inputs, the unlabeled middle layer is the hidden neurons, and the
+    labeled nodes on the right are outputs. You can watch the network fire as the creature
+    makes decisions.
+  </p>
+
+  <h2>The Genome</h2>
+
+  <p>
+    Beyond the brain, each creature carries a set of evolvable genes that determine its
+    physical form and capabilities. These create genuine trade-offs: a large, fast creature
+    with a big brain and wide sensory range is powerful but burns energy at a devastating
+    rate. Evolution must balance investment across all of these axes.
+  </p>
+
+  <ul class="gene-list">
+    <li><span class="gene-name">hue</span> <span class="gene-desc">Color lineage. Drifts slightly each generation. Determines species identity.</span></li>
+    <li><span class="gene-name">body size</span> <span class="gene-desc">Physical scale (0.5x - 2.0x). Affects predation, energy cost, visual size.</span></li>
+    <li><span class="gene-name">speed</span> <span class="gene-desc">Movement speed multiplier (0.5x - 2.0x). Faster = more ground covered, more energy burned.</span></li>
+    <li><span class="gene-name">brain size</span> <span class="gene-desc">Number of hidden neurons (4-20). Bigger brains can represent more complex strategies but cost more to run.</span></li>
+    <li><span class="gene-name">sensory range</span> <span class="gene-desc">How far the creature can detect food, other creatures, and obstacles (60-200 pixels). Wide vision is expensive.</span></li>
+    <li><span class="gene-name">diet</span> <span class="gene-desc">Specialization between flora (near nutrient hotspots) and mineral (near rocks) food. A specialist harvests its preferred food efficiently but gets almost nothing from the other type.</span></li>
+    <li><span class="gene-name">pheromone rate</span> <span class="gene-desc">Maximum chemical trail deposition rate (0.05-0.60). Loud trail-markers help kin navigate but burn energy and announce their presence to rivals. Silent creatures are cheap to run but leave no trace.</span></li>
+  </ul>
+
+  <h2>The World</h2>
+
+  <p>
+    The environment is not static. It creates varied selection pressures that reward
+    different strategies in different places and times.
+  </p>
+
+  <p>
+    <span class="accent">Nutrient hotspots</span> are five invisible zones that slowly
+    drift across the world. Flora food spawns in gaussian clusters around them. A creature
+    that learns to follow food density is following these drifting sources, even though it
+    cannot sense the hotspot directly - only the food it produces.
+  </p>
+
+  <p>
+    <span class="accent">Rock formations</span> are clusters of dark circles that block
+    movement, pheromone diffusion, and food spawning. Mineral food spawns at their edges.
+    Creatures that specialize in mineral diet evolve to navigate obstacle-dense regions.
+  </p>
+
+  <p>
+    <span class="accent">Current zones</span> are invisible drift forces that slowly push
+    creatures in a direction. They move and rotate over time. Creatures have no direct sense
+    of currents - they simply feel the push and must compensate through evolved motor
+    control.
+  </p>
+
+  <p>
+    <span class="accent">Day and night</span> cycle over 60 seconds. Food spawns more
+    frequently during the day. The visual atmosphere shifts from warm daylight to cooler
+    night tones.
+  </p>
+
+  <p>
+    <span class="accent">Seasons</span> cycle over four day periods (about 4 minutes).
+    Summer brings abundant food and stable hotspots. Winter brings scarcity and faster
+    hotspot drift - food sources become unreliable. The trail canvas shifts from warm amber
+    in summer to cool blue in winter.
+  </p>
+
+  <p>
+    <span class="accent">Aging</span> is invisible but relentless. After about 50 seconds
+    of life, a creature's metabolism begins to increase. By 80 seconds, it has doubled. By
+    100 seconds, tripled. No creature lives forever. This forces generational turnover and
+    accelerates evolution - creatures must reproduce before senescence, not just when
+    convenient.
+  </p>
+
+  <h2>How Evolution Works Here</h2>
+
+  <p>
+    A creature reproduces when its energy exceeds a threshold. If its "mating" brain output
+    is high and a willing mate is nearby with enough energy, sexual reproduction occurs:
+    both parents' brain weights are mixed through uniform crossover (each connection
+    randomly chosen from one parent or the other), genes are averaged, and the child is
+    lightly mutated. If no mate is available, the creature reproduces asexually - cloning
+    its brain with mutations.
+  </p>
+
+  <p>
+    Mutations are frequent and small. Each brain connection has a 12% chance of shifting by
+    a small random amount per reproduction. Brain size itself can change by one neuron with
+    8% probability. Genes drift within their ranges. This is noisy, aggressive mutation -
+    evolution needs to explore widely because the search space is enormous (a default-sized
+    brain has over 450 connection weights, each a continuous value).
+  </p>
+
+  <p>
+    When the population drops below 21 creatures, a safety floor triggers: 85% of new
+    creatures are mutated offspring of the best survivors, and 15% are fully random. They
+    spawn near food sources. This prevents extinction spirals while preserving whatever
+    evolutionary progress the population has made. The 15% random creatures provide genetic
+    diversity - occasionally a random brain stumbles onto a strategy that the evolved
+    population has not discovered.
+  </p>
+
+  <p>
+    The brain weights are initialized using Xavier/Glorot scaling, which keeps neurons in
+    the linear regime of their activation function. This is critical: with 32 inputs and
+    naive initialization, all neurons would saturate and mutations would have almost no
+    effect on behavior. Xavier initialization creates genuine behavioral diversity in the
+    initial population, giving natural selection something meaningful to work with from
+    the first generation.
+  </p>
+
+  <h2>What Emerges</h2>
+
+  <p>
+    Within the first minute, creatures reliably evolve basic food-seeking: turning toward
+    the nearest food and moving toward it. This is the first and easiest strategy to
+    discover - the reward signal (eating = energy = survival = reproduction) is direct and
+    immediate.
+  </p>
+
+  <p>
+    Over the next several minutes, more subtle behaviors appear. Creatures evolve dietary
+    specialization - some lineages become flora specialists that forage near hotspots while
+    others become mineral specialists that navigate the obstacle fields. The population
+    splits into ecological niches with different spatial territories.
+  </p>
+
+  <p>
+    <span class="accent">Cooperation</span> is the most striking emergent behavior. The
+    simulation includes a mutualism mechanic: creatures of the same species that are near
+    each other and both have high "sharing" output receive a small energy bonus per tick.
+    This is not altruism - both cooperators benefit directly. Over many generations, some
+    lineages evolve to sustain high sharing output, forming visible clusters connected by
+    teal cooperation lines. Other lineages evolve as solitary foragers with near-zero
+    sharing, investing instead in speed, perception, or brain size. The simulation produces
+    genuinely different strategies in different runs.
+  </p>
+
+  <p>
+    <span class="accent">Predation</span> creates drama. A creature that is 1.18x larger
+    than a nearby creature can eat it, gaining energy. Nearby kin of the prey increase this
+    threshold (safety in numbers), while nearby kin of the predator decrease it (pack
+    hunting). This creates an arms race: prey species evolve to cluster for defense, predator
+    species evolve to cluster for hunting power, and the balance between them shifts over
+    evolutionary time.
+  </p>
+
+  <p>
+    <span class="accent">Pheromone trails</span> are functional. Benchmarking at long
+    timescales confirmed that evolved brains develop significantly larger weights on
+    pheromone inputs than would be expected by chance. Creatures use the chemical landscape
+    for navigation - following kin trails toward productive areas, potentially avoiding
+    foreign trails. The 8th brain output (pheromone deposition intensity) lets creatures
+    choose when to mark and when to go silent, opening the door to strategic chemical
+    communication.
+  </p>
+
+  <p>
+    <span class="accent">Brain size evolves bidirectionally.</span> Under conditions where
+    cooperation is strong, brains often shrink - the cooperative foraging strategy is simple
+    enough that large brains are metabolic waste. Under predation pressure, brains grow -
+    detecting and avoiding threats requires more computation. This mirrors a real pattern in
+    evolutionary biology: eusocial organisms often have simplified individual cognition.
+  </p>
+
+  <h2>The Eras</h2>
+
+  <p>
+    The simulation detects ecosystem-scale patterns and names them. The current era is
+    displayed in the stats panel. These are not scripted events - they are emergent
+    properties of the population's statistical state.
+  </p>
+
+  <div class="era-grid">
+    <div>
+      <div class="era-name">Cambrian Bloom</div>
+      <div class="era-desc">Five or more species coexist with viable populations</div>
+    </div>
+    <div>
+      <div class="era-name">Dominion of [Species]</div>
+      <div class="era-desc">One species controls more than 55% of the population</div>
+    </div>
+    <div>
+      <div class="era-name">Famine</div>
+      <div class="era-desc">Population is critically low</div>
+    </div>
+    <div>
+      <div class="era-name">The Scholars</div>
+      <div class="era-desc">Average brain size has evolved above 13 neurons</div>
+    </div>
+    <div>
+      <div class="era-name">Age of Giants</div>
+      <div class="era-desc">Average body size has grown beyond 1.65</div>
+    </div>
+    <div>
+      <div class="era-name">The Swift</div>
+      <div class="era-desc">Average speed gene exceeds 1.4</div>
+    </div>
+    <div>
+      <div class="era-name">Far Sight</div>
+      <div class="era-desc">Average sensory range exceeds 150</div>
+    </div>
+  </div>
+
+  <p>
+    A typical run progresses from Cambrian Bloom (many species, none dominant) through
+    competitive exclusion into Dominion (one species rises), then potentially into The
+    Scholars or Age of Giants as evolution pushes traits upward. Famines occur during
+    harsh winters or after population crashes. Each run tells a different story.
+  </p>
+
+  <h2>The Sound</h2>
+
+  <p>
+    A generative ambient drone plays continuously, built from oscillators and filtered noise
+    using the Web Audio API. It responds to the ecosystem's state: the filter opens
+    (brighter sound) when the population is healthy and diverse, the LFO quickens (subtle
+    tension) when predation is high, and the resonance sharpens during famines. Individual
+    events - births, feeding, deaths, predation - produce small sonic accents layered into
+    the drone. At high simulation speeds, individual sounds are muted and only the
+    atmospheric drone remains.
+  </p>
+
+  <h2>How to Watch</h2>
+
+  <div class="keys">
+    <div><kbd>click</kbd> a creature to follow it with a 2.5x zoom. The camera smoothly tracks the creature's movement, and the inspector panel shows its brain firing in real time.</div>
+    <div><kbd>click</kbd> empty space to drop food. <kbd>shift+click</kbd> to spawn a new random creature.</div>
+    <div><kbd>esc</kbd> to return to the overview.</div>
+    <div><kbd>1</kbd> <kbd>2</kbd> <kbd>4</kbd> set simulation speed. <kbd>t</kbd> toggles time-lapse (16x/32x) for watching evolution unfold in minutes instead of hours.</div>
+    <div><kbd>space</kbd> pause and resume.</div>
+    <div><kbd>e</kbd> toggle the evolutionary trait timeline - a small chart showing how average brain size, sensory range, body size, speed, and scent deposition evolve over time.</div>
+    <div><kbd>m</kbd> toggle ambient audio.</div>
+    <div><kbd>s</kbd> save the ecosystem to a JSON file. <kbd>l</kbd> load a saved ecosystem. This lets you grow a population over multiple sessions - save before closing, load when you return.</div>
+  </div>
+
+  <div class="note">
+    The most rewarding way to watch: run the simulation at 16x or 32x speed for a few
+    minutes to let evolution advance past generation 50-100. Then slow to 1x, click a
+    creature, and watch what it does. Watch how it moves relative to food, to other
+    creatures, to obstacles. Compare it to a creature from a different species. The
+    behaviors are subtle, but they are real - they are the product of thousands of
+    generations of selection, encoded in connection weights that no human designed.
+  </div>
+
+  <h2>What This Is Not</h2>
+
+  <p>
+    This is not a game. There is no goal, no score, no win condition. It is closer to a
+    digital aquarium or a generative art piece. The experience it offers is the same one
+    you get from watching a nature documentary with the sound on: the slow recognition
+    that the things moving on screen are not random, that there are patterns, that those
+    patterns were not placed there by a designer but arose from the interaction of simple
+    rules over time.
+  </p>
+
+  <p>
+    The moment this project chases is when a viewer looks at the screen and says:
+    <span class="accent">"Wait - did that creature just...?"</span> That moment of
+    recognition, where evolved behavior looks purposeful and intelligent, is what every
+    feature in this simulation exists to serve.
+  </p>
+
+  <div class="separator"></div>
+
+  <h2>Technical Notes</h2>
+
+  <p class="dim">
+    The entire simulation is a single HTML file loading 11 plain JavaScript files via
+    script tags. No build tools, no bundler, no ES modules, no external dependencies.
+    It runs from a file:// URL. Rendering uses Canvas 2D (no WebGL) to keep the code
+    accessible. Audio uses the Web Audio API. The simulation maintains 60fps with 200+
+    creatures on modern hardware. All state lives in memory - save/load serializes to
+    JSON. The source code is around 3,000 lines across 11 files.
+  </p>
+
+  <p class="closing">
+    Leave it running. Come back in ten minutes. Something will have changed.
+  </p>
+
+  <a href="emergence.html" class="back-link">open the simulation</a>
+
+</div>
+
+</body>
+</html>
