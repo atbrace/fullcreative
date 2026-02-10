@@ -246,6 +246,7 @@
       case 'predation':  return 'hsl(' + h + ',55%,50%)';
       case 'milestone':  return 'hsl(' + h + ',40%,55%)';
       case 'era':        return 'hsl(' + h + ',50%,58%)';
+      case 'catastrophe': return 'hsl(' + h + ',65%,55%)';
       default:           return 'hsl(' + h + ',40%,50%)';
     }
   }

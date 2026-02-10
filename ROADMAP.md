@@ -276,7 +276,67 @@ Phase 6 is complete when: a viewer can watch a saved ecosystem that has been
 evolving for 10,000+ generations and observe at least one behavior they would
 describe as "purposeful" or "surprising" without any prompting.
 
-### Phase 7: The Long Dream (far future)
+### Phase 7: Narrative Emergence
+*Make evolution open-ended and visible at human timescales.*
+
+Twenty-three sessions built a technically impressive evolutionary engine. A gen-630
+save file proved that the simulation produces genuine emergent dynamics: cooperation,
+dietary specialization, cognitive investment, strategic diversity. But it also proved
+the simulation **converges**. By generation 630, every physical trait is at its genetic
+ceiling, one species dominates, cooperation is declining, predation has faded, and
+the trait timeline is flat. The ecosystem reaches a steady state and stays there.
+
+The gap between "what the engine produces" and "what a viewer experiences" is the
+final problem. The simulation creates **statistical emergence** (measurable in
+benchmarks) but not **narrative emergence** (observable by watching). A nature
+documentary doesn't work because the ecosystem is complex - it works because the
+camera follows individual stories within that complexity.
+
+**Two problems, in order:**
+
+1. **Convergence.** The trait space is bounded and evolution exhausts it. All
+   creatures converge on one "max everything" phenotype because the metabolic costs
+   scale linearly while the foraging advantages scale multiplicatively. Without
+   disruption, there's no narrative after generation ~400.
+
+2. **Legibility.** Even when interesting things happen, they're invisible. Predation
+   is a one-tick size comparison. Cooperation is an invisible energy transfer. The
+   camera shows either everything (overview) or one creature (follow). There's no
+   middle ground where individual behavior is visible in social context.
+
+**Mechanical changes (prevent convergence):**
+
+- **Steeper metabolic trait costs (#75)** [P1-high] - Quadratic speed costs and
+  steeper size exponent make "max everything" unsustainable. Forces trait
+  specialization: scouts, tanks, homebodies, specialists. Which traits to
+  sacrifice is up to evolution.
+
+- **Environmental catastrophes (#76)** [P1-high] - Rare stochastic events (droughts,
+  habitat shifts, species plagues, impacts) that break equilibrium and force
+  re-adaptation. Creates boom-bust-recovery narrative arcs.
+
+- **Multi-tick predation (#77)** [P1-high] - Chase sequences that unfold over
+  0.5-1.0 seconds instead of instant kills. Gives prey brains time to react,
+  creating selection pressure for evasive behavior. The "wait, did that creature
+  just run away?" moment.
+
+**Presentational changes (make emergence visible):**
+
+- **Auto-camera documentary mode (#78)** [P2-medium] - Smart camera that finds and
+  follows active chases, cooperative clusters, species encounters, ancient creatures.
+  Transforms passive viewing into curated nature documentary experience.
+
+- **Lineage tracking and visualization (#79)** [P2-medium] - Visible evolutionary
+  history on creatures. Ancient lineages glow differently from newcomers. Ghost
+  pheromone traces show where extinct species used to live. Emotional investment
+  in family lines.
+
+Phase 7 is complete when: a viewer can start documentary mode on a saved ecosystem
+and watch for 30 minutes without touching anything, seeing visible predation chases,
+cooperative clustering, species competition, catastrophe-driven adaptation, and
+individual creatures whose lineage they care about.
+
+### Phase 8: The Long Dream (far future)
 *Aspirational features. May never be built. That's fine.*
 
 **Ideas:** See GitHub Issues labeled `phase-6`.
@@ -1332,3 +1392,152 @@ creatures evolved a shared internal "social mode" state. Foreign pheromone
 direction was the #2 driver for sharing - creatures cooperated more intensely
 near enemy territory. Filed #74 (monoculture feedback loop via foreign
 pheromone disappearance). Closed #72 (predation collapse) as validated fixed.
+
+### Session 24 - 2026-02-07
+**Built:** Gen-630 save analysis, Phase 7 roadmap, convergence diagnosis.
+
+This was a research and planning session. No code changes.
+
+1. **Gen-630 save analysis:** Analyzed a 630-generation save file (114.9 minutes,
+   413K ticks, 23K births, 27K deaths). Key findings:
+
+   **Trait ceiling convergence:** Every physical trait pushed to its genetic maximum.
+   Size 1.82/2.0, speed 1.88/2.0 (effective speed at MAX_SPEED 4.0), sense 178/200,
+   brain 15.1/20. The metabolic cost of maxing everything (0.466/tick) is sustainable
+   because one food item (35 energy) sustains 75 ticks. Speed is 51% of total
+   metabolism yet evolution maxes it anyway - the multiplicative foraging advantage
+   (4x ground coverage at max speed) outweighs the additive cost.
+
+   **Species collapse:** 9 of 12 species extinct. Kora dominates at 67% (22/33).
+   Only Rixa (8) and Jera (3) survive alongside. Monoculture tendency persists
+   despite Session 23's diminishing returns fix.
+
+   **Cooperation declining:** 27% cooperators at gen 630, down from 52-56% at gen 132.
+   Non-cooperators have higher generation (624 vs 554). Root cause: population
+   density spiral. At 33 creatures in 1.7M sq pixels, average inter-creature
+   distance is 226px. Cooperation range is 50px. Spatial probability of kin
+   proximity is too low for cooperation to activate reliably.
+
+   **Diet bifurcation:** Zero generalists. 54.5% flora specialists, 45.5% mineral
+   specialists. Clean niche separation - the only axis of genuine diversity.
+
+   **Signal repurposing:** Signal channel 1 (s1.c) is the most important brain input
+   across all top-5 creatures. Session 11 found signals were "evolved noise" at
+   gen ~30. By gen 630, the brain has co-opted signal perception as redundant
+   spatial awareness - since all creatures emit random signals, "nearest ch1 signaler"
+   is effectively "nearest creature."
+
+   **Ghost pheromone landscape:** Species layers 3-9 dominate the pheromone grid
+   but those species are extinct. The chemical landscape carries fossil traces of
+   dead populations. Emergent archaeology, invisible to the viewer.
+
+2. **Convergence diagnosis:** The simulation has a bounded trait space that evolution
+   exhausts. All gene ranges have hard ceilings. By gen 400-600, every trait is
+   near its ceiling and the ecosystem enters permanent steady state. This is the
+   fundamental barrier to the "watch for an hour" vision - the simulation runs out
+   of things to evolve.
+
+   The metabolic cost structure is the root cause. Speed cost is linear (0.06 per
+   unit) while the speed advantage is multiplicative (more ground covered = more food
+   found). Linear costs never overcome multiplicative advantages at any value.
+
+3. **Phase 7: Narrative Emergence.** Designed a new phase targeting two problems:
+   convergence (mechanical changes) and legibility (presentational changes).
+
+   Mechanical: steeper metabolic costs (#75), environmental catastrophes (#76),
+   multi-tick predation (#77). These prevent convergence and create visible drama.
+
+   Presentational: auto-camera documentary mode (#78), lineage visualization (#79).
+   These make existing and new emergence watchable.
+
+   Created 5 new GitHub Issues, closed #71 (brain floor resolved by gen-630 data),
+   updated #62 with cooperation decline findings.
+
+**Learned:** The deepest insight is that bounded trait spaces produce convergence,
+not open-ended evolution. The simulation has enough mechanics. What it lacks is
+an optimization landscape that evolution can't fully explore in 600 generations.
+Steeper-than-linear metabolic costs force trade-offs, which create multiple viable
+phenotypes, which create diversity, which sustains predation and cooperation, which
+creates the drama that makes watching worthwhile. The presentation changes (camera,
+lineage) are necessary but not sufficient - there must be something interesting
+happening for a camera to point at.
+
+### Session 25 - 2026-02-09
+**Built:** Steeper metabolic trait costs (#75) and environmental catastrophes (#76) -
+first two Phase 7 mechanical features.
+
+1. **Quadratic speed cost (#75):** Changed speed metabolism from linear (speed * 0.06)
+   to quadratic (speed^2 * 0.025). Also increased size exponent from 1.2 to 1.5.
+   The crossover point is near BASE_SPEED (2.2) - creatures at base speed pay about
+   the same as before, slower creatures save energy, fast creatures pay a premium.
+   At max speed 4.0: cost is 0.40/tick (was 0.24/tick, +67%). At speed 1.0: cost is
+   0.025/tick (was 0.06/tick, -58%).
+
+   **Benchmark (5 trials x 54K ticks, 6/7 pass):**
+   ```
+   Speed mean:    1.20 (was 1.88 at gen-630 ceiling)
+   Speed stddev:  0.176 (genuine within-population diversity)
+   Size mean:     1.69 (was 1.82, trending up but slower)
+   Size stddev:   0.153
+   Predation:     13.5% (was 7.7% at Session 23, 0% at gen-630)
+   Population:    55 avg
+   Generation:    60 avg
+   ```
+   The one failed criterion: Trial 1 reached gen 39 (not 50) due to a mid-run
+   population crash and recovery. The ecosystem was healthy (121 creatures).
+
+2. **Environmental catastrophes (#76):** Four stochastic catastrophe types that
+   break equilibrium and force re-adaptation:
+   - **Drought** (900 ticks): Food spawn rate drops to 15% of normal. Tests
+     metabolic efficiency - low-metabolism creatures survive.
+   - **Habitat shift** (instant): 3-4 hotspots teleport to new positions. Disrupts
+     established territories and food sources. Particle bursts at old positions.
+   - **Plague** (600 ticks): Extra metabolism (0.12/tick) applied to the most
+     populous species. Breaks monocultures by targeting the dominant strategy.
+     Red particles on affected creatures.
+   - **Impact** (600 ticks): Temporary dead zone (radius 160px). Creatures inside
+     take energy damage (0.25/tick), food destroyed on creation. Rendered as dark
+     scorched circle with red-orange edge glow.
+
+   Catastrophe check: every 3600 ticks (1 day cycle), 12% chance, minimum tick
+   10800 (3 minutes). Average ~1.4 per 54K ticks. Only one active at a time.
+   Event log integration with warm-hued catastrophe event text. Impact zone and
+   drought tint rendered in the renderer. Full save/load support.
+
+   **Combined benchmark (5 trials x 54K ticks, 6/6 pass):**
+   ```
+   Catastrophes:  avg 1.4/trial [0, 3], all 4 types observed
+   Max gen:       73 avg [60, 83]
+   Population:    62 avg, all recoveries healthy
+   Speed mean:    1.01
+   Predation:     12.5%
+   Catastrophe types: impact 1, habitat shift 3, drought 2, plague 1
+   ```
+   Trial 3 experienced drought, plague, AND habitat shift and still recovered to
+   gen 76. Trial 2 had zero catastrophes (stochastic) and serves as a control
+   showing metabolic costs alone work.
+
+**Learned:** The quadratic speed cost is the most impactful single change in the
+project's history. Speed dropped from the 1.88 ceiling to 1.20 mean - a 36%
+reduction - creating genuine phenotypic diversity. The mathematical insight is
+simple: linear costs can't overcome multiplicative advantages, but quadratic costs
+create an interior optimum where the marginal cost of speed increase exceeds the
+marginal foraging benefit. Different food densities (seasons, location, post-
+catastrophe) favor different speed optima, preventing convergence.
+
+The catastrophe system is elegant in its simplicity: four types, each testing a
+different survival skill (metabolic efficiency, exploration, diversity, spatial
+distribution). The 12% per day-cycle frequency creates roughly one catastrophe
+per 30K ticks - frequent enough to disrupt equilibrium but rare enough that the
+ecosystem has time to recover and evolve between events. The plague targeting the
+most populous species is particularly effective at preventing monoculture.
+
+Predation jumped to 12.5% (from 7.7% pre-session) because speed constraint means
+creatures can't outrun predators as easily, and size diversity means more valid
+predator-prey pairs. This is a positive feedback loop: metabolic costs create
+diversity, diversity enables predation, predation creates selection pressure for
+cognitive complexity.
+
+Phase 7 mechanical foundation is now in place. The remaining P1-high item (#77
+multi-tick predation) adds visible drama. The P2-medium items (#78 auto-camera,
+#79 lineage) make it watchable.

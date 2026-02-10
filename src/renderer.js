@@ -175,6 +175,41 @@ class Renderer {
       ctx.beginPath(); ctx.arc(ob.pos.x, ob.pos.y, ob.radius * 1.15, 0, 6.283); ctx.fill();
     }
 
+    // Active catastrophe visuals
+    if (world.catastrophe) {
+      const cat = world.catastrophe;
+      const catAge = world.tick - cat.startTick;
+      const catFade = cat.duration > 0 ? Math.min(catAge / 60, 1) * Math.min(1, (cat.duration - catAge) / 60) : 0;
+
+      if (cat.type === 'impact') {
+        // Dark scorched zone with red-orange edge
+        ctx.globalCompositeOperation = 'source-over';
+        const ig = ctx.createRadialGradient(cat.data.x, cat.data.y, 0, cat.data.x, cat.data.y, cat.data.r);
+        ig.addColorStop(0, `rgba(10, 8, 6, ${0.35 * catFade})`);
+        ig.addColorStop(0.7, `rgba(15, 10, 8, ${0.25 * catFade})`);
+        ig.addColorStop(0.9, `rgba(40, 20, 10, ${0.15 * catFade})`);
+        ig.addColorStop(1, 'rgba(30, 15, 8, 0)');
+        ctx.fillStyle = ig;
+        ctx.beginPath(); ctx.arc(cat.data.x, cat.data.y, cat.data.r, 0, 6.283); ctx.fill();
+        // Edge glow
+        ctx.globalCompositeOperation = 'lighter';
+        const eg = ctx.createRadialGradient(cat.data.x, cat.data.y, cat.data.r * 0.85, cat.data.x, cat.data.y, cat.data.r * 1.1);
+        eg.addColorStop(0, 'rgba(0, 0, 0, 0)');
+        eg.addColorStop(0.5, `rgba(120, 50, 20, ${0.08 * catFade})`);
+        eg.addColorStop(1, 'rgba(80, 30, 10, 0)');
+        ctx.fillStyle = eg;
+        ctx.beginPath(); ctx.arc(cat.data.x, cat.data.y, cat.data.r * 1.1, 0, 6.283); ctx.fill();
+      }
+
+      if (cat.type === 'drought') {
+        // Subtle warm overlay across the whole world
+        ctx.globalCompositeOperation = 'source-over';
+        ctx.fillStyle = `rgba(40, 15, 5, ${0.06 * catFade})`;
+        ctx.fillRect(0, 0, world.w, world.h);
+        ctx.globalCompositeOperation = 'lighter';
+      }
+    }
+
     // Food
     for (let i = 0; i < world.food.length; i++) {
       const f = world.food[i];

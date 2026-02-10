@@ -20,8 +20,8 @@ const CFG = {
   ENERGY_MAX: 200,
   ENERGY_REPRODUCE: 120,
   METABOLISM_BASE: 0.07,
-  METABOLISM_SPEED_FACTOR: 0.06,
-  METABOLISM_SIZE_EXP: 1.2,
+  METABOLISM_SPEED_FACTOR: 0.025,   // quadratic speed cost: speed^2 * factor
+  METABOLISM_SIZE_EXP: 1.5,
   VISION_RANGE: 130,
   EAT_RANGE: 8,
   PREDATION_RATIO: 1.18,
@@ -128,6 +128,18 @@ const CFG = {
 
   // Seasonal cycles
   SEASON_PERIOD: 14400,
+
+  // Environmental catastrophes
+  CATASTROPHE_INTERVAL: 3600,      // check every day cycle
+  CATASTROPHE_CHANCE: 0.12,        // 12% per check (~1 per 30K ticks)
+  CATASTROPHE_MIN_TICK: 10800,     // no catastrophes before 3 minutes
+  DROUGHT_DURATION: 900,           // 15 seconds
+  DROUGHT_FOOD_MULT: 0.15,        // food spawn rate multiplier during drought
+  PLAGUE_DURATION: 600,            // 10 seconds
+  PLAGUE_DAMAGE: 0.12,             // extra metabolism per tick for target species
+  IMPACT_DURATION: 600,            // 10 seconds
+  IMPACT_RADIUS: 160,              // dead zone radius
+  IMPACT_DAMAGE: 0.25,             // energy drain per tick inside zone
 
   BG: [8, 8, 26],
 };

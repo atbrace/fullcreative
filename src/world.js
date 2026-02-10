@@ -17,6 +17,7 @@ class World {
     this.traitHistory = []; // [{brain, sense, size, speed}] sampled every 10 ticks
     this.speciesTracker = new SpeciesTracker();
     this.eventLog = new EventLog();
+    this.catastrophe = null; // { type, startTick, duration, data }
     this.paused = false;
     this.selected = null;
     this.coopPairs = []; // flat: [creatureA, creatureB, ...] for cooperation line rendering
@@ -201,8 +202,13 @@ class World {
     // Pheromone diffusion
     if (this.tick % CFG.PH_DIFFUSE_INTERVAL === 0) this.phGrid.diffuseAndDecay();
 
-    // Spawn food (modulated by day + season)
-    if (this.food.length < CFG.MAX_FOOD && Math.random() < CFG.FOOD_SPAWN_RATE * dayMul * seasonMul)
+    // Environmental catastrophe check
+    this._updateCatastrophe();
+
+    // Spawn food (modulated by day + season + drought)
+    let foodMul = dayMul * seasonMul;
+    if (this.catastrophe && this.catastrophe.type === 'drought') foodMul *= CFG.DROUGHT_FOOD_MULT;
+    if (this.food.length < CFG.MAX_FOOD && Math.random() < CFG.FOOD_SPAWN_RATE * foodMul)
       this.food.push(this._spawnFood());
 
     // Rebuild grids
@@ -219,6 +225,21 @@ class World {
       c.think(inp);
       c.move(this.w, this.h, this.obstacles, this.currents);
       if (c.huntCooldown > 0) c.huntCooldown--;
+
+      // Catastrophe effects on creature
+      if (this.catastrophe) {
+        if (this.catastrophe.type === 'plague' && Math.floor(c.genes.hue / 30) % 12 === this.catastrophe.data.bucket) {
+          c.energy -= CFG.PLAGUE_DAMAGE;
+          if (this.tick % 20 === 0) this.spawnP(c.pos.x, c.pos.y, 0, 2, 0.8, 15, 1);
+        }
+        if (this.catastrophe.type === 'impact') {
+          const dx = c.pos.x - this.catastrophe.data.x, dy = c.pos.y - this.catastrophe.data.y;
+          if (dx * dx + dy * dy < this.catastrophe.data.r2) {
+            c.energy -= CFG.IMPACT_DAMAGE;
+            if (this.tick % 12 === 0) this.spawnP(c.pos.x, c.pos.y, 15, 1, 1.0, 10, 1);
+          }
+        }
+      }
 
       // Deposit species-scented pheromone: brain output modulates gene max rate
       const phAmount = c.phDepOut * c.genes.phDeposit;
@@ -429,6 +450,76 @@ class World {
     this.eventLog.check(this);
   }
 
+  _updateCatastrophe() {
+    // Expire active catastrophe
+    if (this.catastrophe) {
+      if (this.tick - this.catastrophe.startTick >= this.catastrophe.duration) {
+        this.catastrophe = null;
+      }
+      return; // don't start a new one while one is active
+    }
+
+    // Check for new catastrophe
+    if (this.tick < CFG.CATASTROPHE_MIN_TICK) return;
+    if (this.tick % CFG.CATASTROPHE_INTERVAL !== 0) return;
+    if (Math.random() >= CFG.CATASTROPHE_CHANCE) return;
+
+    // Pick a random type
+    const types = ['drought', 'plague', 'shift', 'impact'];
+    const type = types[randInt(0, types.length)];
+
+    switch (type) {
+      case 'drought':
+        this.catastrophe = { type, startTick: this.tick, duration: CFG.DROUGHT_DURATION, data: {} };
+        this.eventLog.add('catastrophe', 'drought - food sources drying up', 30);
+        break;
+
+      case 'plague': {
+        // Target the most populous species
+        const cur = this.speciesTracker.getCurrent();
+        if (cur.length === 0) return;
+        const target = cur[0]; // getCurrent returns sorted by population desc
+        if (target.count < 5) return; // don't plague tiny populations
+        this.catastrophe = { type, startTick: this.tick, duration: CFG.PLAGUE_DURATION, data: { bucket: target.b, name: SPECIES_NAMES[target.b] } };
+        this.eventLog.add('catastrophe', 'plague - ' + SPECIES_NAMES[target.b] + ' afflicted', target.hue);
+        break;
+      }
+
+      case 'shift':
+        // Instantly relocate most hotspots
+        {
+          const nShift = Math.min(this.hotspots.length, 3 + randInt(0, 2));
+          for (let i = 0; i < nShift; i++) {
+            const hs = this.hotspots[i];
+            this.spawnP(hs.x, hs.y, 45, 15, 2.5, 40, 2);
+            hs.x = rand(100, this.w - 100);
+            hs.y = rand(100, this.h - 100);
+            hs.vx = rand(-0.15, 0.15);
+            hs.vy = rand(-0.15, 0.15);
+          }
+        }
+        // No duration - instant effect
+        this.eventLog.add('catastrophe', 'habitat shift - food sources relocated', 55);
+        break;
+
+      case 'impact': {
+        const ix = rand(CFG.IMPACT_RADIUS + 40, this.w - CFG.IMPACT_RADIUS - 40);
+        const iy = rand(CFG.IMPACT_RADIUS + 40, this.h - CFG.IMPACT_RADIUS - 40);
+        const ir = CFG.IMPACT_RADIUS;
+        this.catastrophe = { type, startTick: this.tick, duration: CFG.IMPACT_DURATION, data: { x: ix, y: iy, r: ir, r2: ir * ir } };
+        // Destroy food inside impact zone
+        for (let i = 0; i < this.food.length; i++) {
+          const f = this.food[i];
+          const dx = f.pos.x - ix, dy = f.pos.y - iy;
+          if (dx * dx + dy * dy < ir * ir) f.alive = false;
+        }
+        this.spawnP(ix, iy, 15, 30, 4, 50, 3);
+        this.eventLog.add('catastrophe', 'impact - habitat destroyed', 15);
+        break;
+      }
+    }
+  }
+
   resize(w, h) {
     this.w = w; this.h = h;
     this.foodGrid = new SpatialGrid(w, h, CFG.GRID_CELL);
@@ -466,6 +557,7 @@ class World {
         x: f.pos.x, y: f.pos.y, hue: f.hue, energy: f.energy, type: f.type,
       })),
       pheromoneSpecies: Array.from(this.phGrid.speciesData),
+      catastrophe: this.catastrophe,
       popHistory: this.popHistory.slice(),
       traitHistory: this.traitHistory.slice(),
     };
@@ -528,6 +620,9 @@ class World {
     // Restore history
     this.popHistory = data.popHistory || [];
     this.traitHistory = data.traitHistory || [];
+
+    // Restore catastrophe state
+    this.catastrophe = data.catastrophe || null;
 
     // Reset transient state
     this.particles = [];
