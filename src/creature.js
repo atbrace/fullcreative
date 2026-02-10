@@ -21,6 +21,8 @@ class Creature {
     this.mateOut = 0;
     this.phDepOut = 0;
     this.huntCooldown = 0;
+    this._chaseTarget = null;     // creature being chased (transient, not serialized)
+    this._chaseTicks = 0;         // ticks remaining in active chase
     this.body = []; // trailing body positions
     this._nfPos = null; // nearest food position (for viz)
     this._ncPos = null; // nearest creature position (for viz)
@@ -208,7 +210,8 @@ class Creature {
 
   think(inputs) {
     const out = this.brain.forward(inputs);
-    this.heading = wrapAngle(this.heading + out[0] * CFG.TURN_RATE);
+    const agility = CFG.TURN_RATE / Math.pow(this.genes.size, CFG.AGILITY_SIZE_EXP);
+    this.heading = wrapAngle(this.heading + out[0] * agility);
     this.speed = clamp((out[1] + 1) * 0.5 * CFG.BASE_SPEED * this.genes.speedGene, 0, CFG.MAX_SPEED);
     for (let ch = 0; ch < CFG.SIGNAL_CHANNELS; ch++)
       this.signals[ch] = (out[2 + ch] + 1) * 0.5; // 0..1

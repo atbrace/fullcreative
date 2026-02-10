@@ -208,16 +208,16 @@ class EventLog {
     } else if (wRich >= 5) {
       newEra = 'Cambrian Bloom';
       newHue = 160;
-    } else if (wBrain > 13) {
+    } else if (wBrain > 12) {
       newEra = 'The Scholars';
       newHue = 50;
-    } else if (wSize > 1.65) {
+    } else if (wSize > 1.45) {
       newEra = 'Age of Giants';
       newHue = 270;
-    } else if (wSpeed > 1.4) {
+    } else if (wSpeed > 1.15) {
       newEra = 'The Swift';
       newHue = 120;
-    } else if (wSense > 150) {
+    } else if (wSense > 140) {
       newEra = 'Far Sight';
       newHue = 200;
     }

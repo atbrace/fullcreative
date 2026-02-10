@@ -384,6 +384,20 @@ class Renderer {
       }
     }
 
+    // Chase lines between predator and prey
+    if (world.chasePairs.length > 0) {
+      ctx.lineWidth = 1.0;
+      for (let i = 0; i < world.chasePairs.length; i += 2) {
+        const pred = world.chasePairs[i], prey = world.chasePairs[i + 1];
+        const pulse = 0.22 + Math.sin(world.tick * 0.15 + pred.id) * 0.10;
+        ctx.strokeStyle = `rgba(255, 120, 80, ${pulse})`;
+        ctx.beginPath();
+        ctx.moveTo(pred.pos.x, pred.pos.y);
+        ctx.lineTo(prey.pos.x, prey.pos.y);
+        ctx.stroke();
+      }
+    }
+
     // Particles
     for (let i = 0; i < world.particles.length; i++) {
       const p = world.particles[i], a = p.alpha;

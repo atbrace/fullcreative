@@ -21,6 +21,7 @@ class World {
     this.paused = false;
     this.selected = null;
     this.coopPairs = []; // flat: [creatureA, creatureB, ...] for cooperation line rendering
+    this.chasePairs = []; // flat: [predator, prey, ...] for chase line rendering
   }
 
   seed() {
@@ -183,6 +184,7 @@ class World {
     if (this.paused) return;
     this.tick++;
     this.coopPairs.length = 0;
+    this.chasePairs.length = 0;
 
     // Day/night affects food spawn rate
     const dayMul = 0.6 + this.dayPhase * 0.8; // 0.6 to 1.4
@@ -300,48 +302,75 @@ class World {
         }
       }
 
-      // Predation (skip if on hunt cooldown)
-      if (c.huntCooldown <= 0) {
-        // Pre-compute predator's kin count for cooperative hunting
-        const predKinNearby = this.creatureGrid.query(c.pos.x, c.pos.y, CFG.COOP_HUNT_RANGE);
-        let predKinCount = 0;
-        for (let k = 0; k < predKinNearby.length; k++) {
-          const ally = predKinNearby[k];
-          if (ally.id === c.id || !ally.alive) continue;
-          if (Math.floor(ally.genes.hue / 30) % 12 === cBucket) predKinCount++;
-        }
-        const coopHuntBonus = Math.min(predKinCount * CFG.COOP_HUNT_PER_KIN, CFG.COOP_HUNT_MAX);
+      // Multi-tick predation: chase update and initiation
+      // Step 1: Update active chase
+      if (c._chaseTarget) {
+        const prey = c._chaseTarget;
+        const chaseDist = c.pos.dist(prey.pos);
 
-        const nc = this.creatureGrid.query(c.pos.x, c.pos.y, c.radius * CFG.PREDATION_RANGE);
-        for (let j = 0; j < nc.length; j++) {
-          const prey = nc[j];
-          if (prey.id === c.id || !prey.alive) continue;
-          if (c.pos.dist(prey.pos) >= c.radius + prey.radius * CFG.PREDATION_STRIKE) continue;
+        // Chase breaks if: target dead, too far, timer expired
+        if (!prey.alive || chaseDist > CFG.CHASE_BREAK_RANGE || c._chaseTicks <= 0) {
+          c._chaseTarget = null;
+          c._chaseTicks = 0;
+          c.huntCooldown = Math.floor(CFG.HUNT_COOLDOWN * 0.4); // shorter cooldown for failed chase
+        } else {
+          c._chaseTicks--;
+          this.chasePairs.push(c, prey);
 
-          // Kin proximity defense: nearby kin make prey harder to eat
-          let effectiveRatio = CFG.PREDATION_RATIO;
-          const kinNearby = this.creatureGrid.query(prey.pos.x, prey.pos.y, CFG.KIN_DEFENSE_RANGE);
-          let kinCount = 0;
-          const preyBucket = Math.floor(prey.genes.hue / 30) % 12;
-          for (let k = 0; k < kinNearby.length; k++) {
-            const ally = kinNearby[k];
-            if (ally.id === prey.id || ally.id === c.id || !ally.alive) continue;
-            if (Math.floor(ally.genes.hue / 30) % 12 === preyBucket) kinCount++;
+          // Strike check: is predator close enough to attempt kill?
+          if (chaseDist <= c.radius + prey.radius * CFG.PREDATION_STRIKE) {
+            // Pre-compute predator's kin for cooperative hunting
+            const predKinNearby = this.creatureGrid.query(c.pos.x, c.pos.y, CFG.COOP_HUNT_RANGE);
+            let predKinCount = 0;
+            for (let k = 0; k < predKinNearby.length; k++) {
+              const ally = predKinNearby[k];
+              if (ally.id === c.id || !ally.alive) continue;
+              if (Math.floor(ally.genes.hue / 30) % 12 === cBucket) predKinCount++;
+            }
+            const coopHuntBonus = Math.min(predKinCount * CFG.COOP_HUNT_PER_KIN, CFG.COOP_HUNT_MAX);
+
+            // Kin proximity defense
+            let effectiveRatio = CFG.PREDATION_RATIO;
+            const kinNearby = this.creatureGrid.query(prey.pos.x, prey.pos.y, CFG.KIN_DEFENSE_RANGE);
+            let kinCount = 0;
+            const preyBucket = Math.floor(prey.genes.hue / 30) % 12;
+            for (let k = 0; k < kinNearby.length; k++) {
+              const ally = kinNearby[k];
+              if (ally.id === prey.id || ally.id === c.id || !ally.alive) continue;
+              if (Math.floor(ally.genes.hue / 30) % 12 === preyBucket) kinCount++;
+            }
+            effectiveRatio += Math.min(kinCount * CFG.KIN_DEFENSE_PER_KIN, CFG.KIN_DEFENSE_MAX);
+            effectiveRatio -= coopHuntBonus;
+
+            if (c.radius > prey.radius * effectiveRatio) {
+              prey.alive = false;
+              c.energy = Math.min(c.energy + prey.energy * CFG.PREDATION_EFFICIENCY, CFG.ENERGY_MAX);
+              this.spawnP(prey.pos.x, prey.pos.y, prey.genes.hue, 12, 2.5, 35, 2);
+              this.deaths++; this.predationKills++;
+              this.recentPredations++;
+              this.eventLog.notifyPredation();
+              audio.predationSweep();
+              c._chaseTarget = null;
+              c._chaseTicks = 0;
+              c.huntCooldown = CFG.HUNT_COOLDOWN;
+            }
           }
-          effectiveRatio += Math.min(kinCount * CFG.KIN_DEFENSE_PER_KIN, CFG.KIN_DEFENSE_MAX);
-          // Cooperative hunting: predator's nearby kin reduce the ratio needed
-          effectiveRatio -= coopHuntBonus;
+        }
+      }
 
-          if (c.radius > prey.radius * effectiveRatio) {
-            prey.alive = false;
-            c.energy = Math.min(c.energy + prey.energy * CFG.PREDATION_EFFICIENCY, CFG.ENERGY_MAX);
-            this.spawnP(prey.pos.x, prey.pos.y, prey.genes.hue, 12, 2.5, 35, 2);
-            this.deaths++; this.predationKills++;
-            this.recentPredations++;
-            this.eventLog.notifyPredation();
-            audio.predationSweep();
-            c.huntCooldown = CFG.HUNT_COOLDOWN;
-            break; // one kill per tick per predator
+      // Step 2: Initiate new chase if not in one and not on cooldown
+      if (!c._chaseTarget && c.huntCooldown <= 0) {
+        const cands = this.creatureGrid.query(c.pos.x, c.pos.y, CFG.CHASE_DETECT_RANGE);
+        for (let j = 0; j < cands.length; j++) {
+          const prey = cands[j];
+          if (prey.id === c.id || !prey.alive) continue;
+          // Basic size check: can this predator eat this prey at base ratio?
+          if (c.radius <= prey.radius * CFG.PREDATION_RATIO) continue;
+          if (c.pos.dist(prey.pos) <= CFG.CHASE_DETECT_RANGE) {
+            c._chaseTarget = prey;
+            c._chaseTicks = CFG.CHASE_DURATION;
+            this.chasePairs.push(c, prey);
+            break; // one chase at a time
           }
         }
       }
@@ -629,6 +658,7 @@ class World {
     this.recentPredations = 0;
     this.selected = null;
     this.coopPairs = [];
+    this.chasePairs = [];
     this.speciesTracker = new SpeciesTracker();
     this.eventLog = new EventLog();
     this.foodGrid = new SpatialGrid(this.w, this.h, CFG.GRID_CELL);

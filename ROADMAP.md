@@ -1541,3 +1541,75 @@ cognitive complexity.
 Phase 7 mechanical foundation is now in place. The remaining P1-high item (#77
 multi-tick predation) adds visible drama. The P2-medium items (#78 auto-camera,
 #79 lineage) make it watchable.
+
+### Session 26 - 2026-02-09
+**Built:** Multi-tick predation chase sequences (#77), size-agility trade-off (#80),
+and era threshold recalibration (#81) - completing all P1-high Phase 7 items.
+
+1. **Multi-tick predation (#77):** Transformed predation from invisible single-tick
+   instant kills into visible chase sequences lasting up to 0.75 seconds (45 ticks).
+   Predators detect viable prey within 80px (CHASE_DETECT_RANGE, ~2x the old detection
+   range), lock on, and must close distance to strike range over multiple ticks. Prey
+   brain has time to react through existing nearest-creature perception inputs - no new
+   brain inputs needed (preserving emergence philosophy). Chase breaks if: target dies,
+   distance exceeds 120px (CHASE_BREAK_RANGE), or timer expires. Failed chases get a
+   shorter cooldown (40% of full hunt cooldown). World tracks chasePairs for rendering
+   as red-orange pulsing lines between predator and prey, visible at both overview and
+   zoomed scales. Multiple predators can chase the same prey - first to strike kills,
+   others see the target die and break off.
+
+2. **Size-agility trade-off (#80):** Turn rate now scales inversely with body size:
+   `turnRate = TURN_RATE / size^AGILITY_SIZE_EXP` where AGILITY_SIZE_EXP = 0.6.
+   At size 0.7: 25% more agile. At size 1.4: 20% less agile. At size 2.0: 34% less
+   agile. This creates a genuine chase dynamic: big predators are powerful but can't
+   turn to catch agile prey, while small creatures can dodge through obstacle gaps.
+   Size mean dropped from 1.39 to 1.28 after this change - evolution now penalizes
+   pure size maximization because the agility cost offsets the predation advantage.
+
+3. **Era threshold recalibration (#81):** Adjusted all trait-based era thresholds for
+   the post-metabolic-cost reality. The Scholars: 13 -> 12. Age of Giants: 1.65 -> 1.45.
+   The Swift: 1.4 -> 1.15. Far Sight: 150 -> 140. These now trigger at trait values
+   that are achievable but not guaranteed in the new dynamics, creating narrative variety.
+
+**Benchmark (5 trials x 54K ticks, 6/6 criteria pass - both pre and post agility):**
+```
+Pre-agility (chase only):
+  Predation %:        13.6% [10.3, 20.0]
+  Avg active chases:  8.34
+  Max generation:     58 [50, 65]
+  Population:         86 [42, 140]
+  Size mean:          1.39
+
+Post-agility (chase + size-agility):
+  Predation %:        12.9% [9.9, 17.6]
+  Avg active chases:  9.77 (+17% - agility makes chases last longer)
+  Max generation:     52 [44, 57]
+  Population:         90 [34, 148]
+  Size mean:          1.28 (-8% - agility penalizes size)
+  Speed mean:         1.05
+```
+
+**Learned:** The chase mechanic's most important property is that it preserves the
+emergence philosophy: no new brain inputs, no forced steering, no artificial
+difficulty. The predator brain must independently navigate toward prey using existing
+perception. The prey brain perceives the approaching larger creature through existing
+creature-direction inputs and can respond through speed, turning, and obstacle use.
+The 45-tick chase window (0.75s) is long enough to be visible at both normal and
+time-lapse speeds but short enough that the ecosystem doesn't grind to a halt with
+extended chases.
+
+The size-agility trade-off is the most elegant mechanical addition: one line of code
+(turn rate / size^0.6) creates a three-way trade-off between power (size for
+predation), agility (turn rate for evasion), and metabolism (size cost for energy).
+This is exactly the "simple rules, complex behavior" principle - a single formula
+creates a rich fitness landscape with multiple viable strategies.
+
+The wider chase detection range (80px vs old ~42px) slightly increased predation rate
+(12.9% vs old 12.5%), compensating for the multi-tick delay. Chases that fail (prey
+escapes) create visible drama even without a kill - the viewer sees the red-orange
+line appear, the prey dodging, and the chase breaking. Trial 4 had 55 simultaneous
+chases during a population boom, creating a visually intense predation event.
+
+Phase 7 now has all mechanical items complete. The remaining items (#78 auto-camera,
+#79 lineage tracking) are presentational - they make existing emergence watchable
+rather than adding new mechanics.

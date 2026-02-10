@@ -16,6 +16,7 @@ const CFG = {
   BASE_SPEED: 2.2,
   MAX_SPEED: 4.0,
   TURN_RATE: 0.12,
+  AGILITY_SIZE_EXP: 0.6,          // turn rate scales as 1/size^exp (big = slow turns)
   ENERGY_INITIAL: 80,
   ENERGY_MAX: 200,
   ENERGY_REPRODUCE: 120,
@@ -29,6 +30,11 @@ const CFG = {
   PREDATION_STRIKE: 1.0,        // strike distance: c.radius + prey.radius * N
   PREDATION_EFFICIENCY: 0.55,
   HUNT_COOLDOWN: 90,              // ticks after a kill before can hunt again
+
+  // Multi-tick predation (chase sequences)
+  CHASE_DETECT_RANGE: 80,          // distance to detect viable prey and initiate chase
+  CHASE_DURATION: 45,              // max ticks for a chase (~0.75s at 60fps)
+  CHASE_BREAK_RANGE: 120,          // chase breaks if prey reaches this distance
 
   // Aging and senescence
   AGING_ONSET: 3000,               // ticks before aging begins (~50s at 60fps)
