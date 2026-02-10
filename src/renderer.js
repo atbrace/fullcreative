@@ -9,6 +9,9 @@ class Renderer {
     this.showTraits = false;
     this.cam = { x: 0, y: 0, zoom: 1 };
     this.camTarget = { x: 0, y: 0, zoom: 1 };
+    // Offscreen trail buffer - accumulates in world space
+    this._trailBuffer = document.createElement('canvas');
+    this._tbCtx = this._trailBuffer.getContext('2d');
     this.resize();
   }
 
@@ -21,11 +24,30 @@ class Renderer {
     }
     this.tctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     this.mctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    // Offscreen trail buffer at DPR resolution, world-space coordinates
+    this._trailBuffer.width = this.w * dpr;
+    this._trailBuffer.height = this.h * dpr;
+    this._tbCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
     const [r, g, b] = CFG.BG;
+    this._tbCtx.fillStyle = `rgb(${r},${g},${b})`;
+    this._tbCtx.fillRect(0, 0, this.w, this.h);
     this.tctx.fillStyle = `rgb(${r},${g},${b})`;
     this.tctx.fillRect(0, 0, this.w, this.h);
     this.cam.x = this.w / 2; this.cam.y = this.h / 2; this.cam.zoom = 1;
     this.camTarget.x = this.w / 2; this.camTarget.y = this.h / 2; this.camTarget.zoom = 1;
+  }
+
+  updateCameraTarget(world) {
+    const follow = world.selected;
+    if (follow && follow.alive) {
+      this.camTarget.x = follow.pos.x;
+      this.camTarget.y = follow.pos.y;
+      this.camTarget.zoom = 2.5;
+    } else {
+      this.camTarget.x = this.w / 2;
+      this.camTarget.y = this.h / 2;
+      this.camTarget.zoom = 1;
+    }
   }
 
   render(world, simSpeed) {
@@ -33,16 +55,6 @@ class Renderer {
     const tctx = this.tctx, ctx = this.mctx, W = this.w, H = this.h;
 
     // --- Camera ---
-    const follow = world.selected;
-    if (follow && follow.alive) {
-      this.camTarget.x = follow.pos.x;
-      this.camTarget.y = follow.pos.y;
-      this.camTarget.zoom = 2.5;
-    } else {
-      this.camTarget.x = W / 2;
-      this.camTarget.y = H / 2;
-      this.camTarget.zoom = 1;
-    }
     const cl = 0.06;
     this.cam.x += (this.camTarget.x - this.cam.x) * cl;
     this.cam.y += (this.camTarget.y - this.cam.y) * cl;
@@ -62,37 +74,43 @@ class Renderer {
     const speedFade = 1 + Math.log2(Math.max(simSpeed, 1)) * 0.5;
     const trailFade = CFG.TRAIL_FADE_BASE * (0.8 + dayP * 0.4) * speedFade;
 
-    // --- Trail canvas ---
+    // --- Trail buffer (world-space accumulation) ---
+    const tb = this._tbCtx;
     const [br, bg, bb] = CFG.BG;
     // Seasonal color temperature: warm in summer, cool in winter
     const bgR = br + Math.round(dayP * 3) + Math.round(seasonP * 3);
     const bgG = bg + Math.round(dayP * 3) + Math.round(seasonP * 1);
     const bgB = bb + Math.round(dayP * 5) + Math.round((1 - seasonP) * 4);
-    tctx.fillStyle = `rgba(${bgR},${bgG},${bgB},${trailFade})`;
-    tctx.fillRect(0, 0, W, H);
+    // Fade existing trails on offscreen buffer
+    tb.fillStyle = `rgba(${bgR},${bgG},${bgB},${trailFade})`;
+    tb.fillRect(0, 0, W, H);
 
-    // Camera transform for trail world elements
+    // Mask obstacle interiors on trail buffer
+    tb.fillStyle = `rgb(${br},${bg},${bb})`;
+    for (let i = 0; i < world.obstacles.length; i++) {
+      const ob = world.obstacles[i];
+      tb.beginPath(); tb.arc(ob.pos.x, ob.pos.y, ob.radius, 0, 6.283); tb.fill();
+    }
+
+    // Draw creature trail dots in world coordinates (no camera transform)
+    for (let i = 0; i < world.creatures.length; i++) {
+      const c = world.creatures[i];
+      const en = clamp(c.energy / CFG.ENERGY_MAX, 0, 1);
+      tb.fillStyle = `hsla(${c.genes.hue}, ${60 + en * 30}%, ${30 + en * 25}%, 0.3)`;
+      tb.beginPath();
+      tb.arc(c.pos.x, c.pos.y, 1.5, 0, 6.283);
+      tb.fill();
+    }
+
+    // --- Composite trail buffer onto visible trail canvas with camera transform ---
+    tctx.fillStyle = `rgb(${br},${bg},${bb})`;
+    tctx.fillRect(0, 0, W, H);
     tctx.save();
     tctx.translate(W / 2, H / 2);
     tctx.scale(z, z);
     tctx.translate(-cx, -cy);
-
-    // Mask obstacle interiors on trail canvas
-    tctx.fillStyle = `rgb(${br},${bg},${bb})`;
-    for (let i = 0; i < world.obstacles.length; i++) {
-      const ob = world.obstacles[i];
-      tctx.beginPath(); tctx.arc(ob.pos.x, ob.pos.y, ob.radius, 0, 6.283); tctx.fill();
-    }
-
-    for (let i = 0; i < world.creatures.length; i++) {
-      const c = world.creatures[i];
-      const en = clamp(c.energy / CFG.ENERGY_MAX, 0, 1);
-      tctx.fillStyle = `hsla(${c.genes.hue}, ${60 + en * 30}%, ${30 + en * 25}%, 0.3)`;
-      tctx.beginPath();
-      tctx.arc(c.pos.x, c.pos.y, 1.5, 0, 6.283);
-      tctx.fill();
-    }
-
+    tctx.imageSmoothingEnabled = true;
+    tctx.drawImage(this._trailBuffer, 0, 0, W, H);
     tctx.restore();
 
     // --- Main canvas ---

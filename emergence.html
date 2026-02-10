@@ -165,6 +165,22 @@
     opacity: 0; transition: opacity 0.3s ease;
   }
   #pause-label.visible { opacity: 1; }
+
+  /* --- Documentary mode --- */
+  #scene-label {
+    position: fixed; bottom: 26%; left: 50%; transform: translateX(-50%);
+    z-index: 11; font-size: 0.62rem; letter-spacing: 0.18em; font-weight: 300;
+    color: rgba(140, 140, 180, 0); pointer-events: none;
+    transition: color 1.2s ease; text-transform: lowercase; white-space: nowrap;
+  }
+  #scene-label.visible { color: rgba(140, 140, 180, 0.3); }
+  #doc-badge {
+    position: fixed; top: 20px; right: 50%; transform: translateX(50%);
+    z-index: 10; font-size: 0.52rem; letter-spacing: 0.22em;
+    color: rgba(120, 120, 160, 0); pointer-events: none;
+    transition: color 0.5s ease; text-transform: uppercase;
+  }
+  #doc-badge.visible { color: rgba(120, 120, 160, 0.35); }
 </style>
 </head>
 <body>
@@ -251,13 +267,15 @@
   <div><kbd>shift+click</kbd> add creature</div>
   <div><kbd>1</kbd> <kbd>2</kbd> <kbd>4</kbd> speed &nbsp; <kbd>t</kbd> time-lapse (16x/32x)</div>
   <div><kbd>space</kbd> pause / play</div>
-  <div><kbd>e</kbd> trait timeline &nbsp; <kbd>m</kbd> toggle music &nbsp; <kbd>h</kbd> toggle help &nbsp; <kbd>esc</kbd> deselect</div>
+  <div><kbd>e</kbd> trait timeline &nbsp; <kbd>d</kbd> documentary camera &nbsp; <kbd>m</kbd> toggle music &nbsp; <kbd>h</kbd> toggle help &nbsp; <kbd>esc</kbd> deselect</div>
   <div><kbd>s</kbd> save ecosystem &nbsp; <kbd>l</kbd> load ecosystem</div>
 </div>
 
 <div id="event-log"></div>
 
 <div id="pause-label">PAUSED</div>
+<div id="scene-label"></div>
+<div id="doc-badge">documentary</div>
 
 <canvas id="trail-canvas"></canvas>
 <canvas id="main-canvas"></canvas>
@@ -272,6 +290,7 @@
 <script src="src/creature.js"></script>
 <script src="src/world.js"></script>
 <script src="src/audio.js"></script>
+<script src="src/camera.js"></script>
 <script src="src/renderer.js"></script>
 <script src="src/main.js"></script>
 </body>

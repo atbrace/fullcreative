@@ -17,6 +17,7 @@
   let world = new World(renderer.w, renderer.h);
   window.__world = world; // debug accessor
   const audio = new AudioEngine();
+  const autoCamera = new AutoCamera();
 
   let started = false, showHelp = true, simSpeed = 1, frameCount = 0;
 
@@ -129,6 +130,7 @@
     else if (k === 'e') { renderer.showTraits = !renderer.showTraits; }
     else if (k === 's') { saveEcosystem(); }
     else if (k === 'l') { fileInputEl.click(); }
+    else if (k === 'd') { autoCamera.toggle(); }
     else if (k === 'escape') { world.selected = null; inspEl.classList.remove('visible'); }
   });
 
@@ -269,9 +271,11 @@
     if (!started) return;
     const useAudio = simSpeed > 4 ? timelapsAudio : audio;
     for (let i = 0; i < simSpeed; i++) world.update(useAudio);
+    renderer.updateCameraTarget(world);
+    autoCamera.update(world, renderer);
     renderer.render(world, simSpeed);
     frameCount++;
-    if (frameCount % 12 === 0) { updateStats(); updateInspector(); updateEventLog(); }
+    if (frameCount % 12 === 0) { updateStats(); updateInspector(); updateEventLog(); autoCamera.updateLabel(); }
   }
   loop();
 })();
